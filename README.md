@@ -1,12 +1,100 @@
-# security-use
+<p align="center">
+  <a href="https://security-use.dev">
+    <img src="assets/logo.svg" alt="SecurityUse" width="400">
+  </a>
+</p>
 
-A security scanning library for Python projects. Provides vulnerability scanning for dependencies and Infrastructure as Code (IaC) files.
+<p align="center">
+  <strong>Comprehensive security scanning for modern applications</strong>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/security-use/"><img src="https://img.shields.io/pypi/v/security-use?color=5EEAD4&style=flat-square" alt="PyPI"></a>
+  <a href="https://pypi.org/project/security-use/"><img src="https://img.shields.io/pypi/pyversions/security-use?color=5EEAD4&style=flat-square" alt="Python Versions"></a>
+  <a href="https://github.com/security-use/security-use/blob/main/LICENSE"><img src="https://img.shields.io/github/license/security-use/security-use?color=5EEAD4&style=flat-square" alt="License"></a>
+  <a href="https://github.com/security-use/security-use/actions"><img src="https://img.shields.io/github/actions/workflow/status/security-use/security-use/ci.yml?style=flat-square" alt="CI"></a>
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#features">Features</a> •
+  <a href="#contributing">Contributing</a>
+</p>
+
+---
+
+## Overview
+
+**SecurityUse** is a unified security scanning platform for Python applications. It detects vulnerabilities in dependencies, misconfigurations in Infrastructure as Code, and provides runtime attack detection for web applications.
+
+```bash
+$ security-use scan all ./my-project
+
+ SecurityUse v0.1.4
+
+ Scanning dependencies...
+ ✓ Found 3 vulnerabilities in 47 packages
+
+ Scanning IaC files...
+ ✓ Found 2 misconfigurations in 5 files
+
+ ┌─────────────────────────────────────────────────────────────────┐
+ │ CRITICAL  1   │   HIGH  2   │   MEDIUM  2   │   LOW  0         │
+ └─────────────────────────────────────────────────────────────────┘
+```
 
 ## Features
 
-- **Dependency Scanning**: Detect known vulnerabilities (CVEs) in Python packages
-- **IaC Scanning**: Find security misconfigurations in Terraform, CloudFormation, and other IaC formats
-- **Automated Fixes**: Generate and apply fixes for detected issues
+### Dependency Vulnerability Scanning
+
+Detect known CVEs in your Python dependencies using the [OSV database](https://osv.dev/).
+
+- **Multi-format support**: `requirements.txt`, `Pipfile`, `pyproject.toml`, `poetry.lock`, `package.json`, `pom.xml`
+- **Accurate matching**: Uses package ecosystem data for precise vulnerability matching
+- **Severity scoring**: CVSS-based severity ratings (Critical, High, Medium, Low)
+- **Fix suggestions**: Recommends safe versions to upgrade to
+
+### Infrastructure as Code Scanning
+
+Find security misconfigurations before they reach production.
+
+| Platform | Formats | Rules |
+|----------|---------|-------|
+| **Terraform** | `.tf`, `.tf.json` | 25+ |
+| **CloudFormation** | `.yaml`, `.yml`, `.json` | 20+ |
+| **AWS** | S3, EC2, IAM, RDS, Lambda | Full coverage |
+
+**Detects:**
+- Unencrypted storage and databases
+- Overly permissive IAM policies
+- Public access to sensitive resources
+- Missing logging and monitoring
+- Insecure network configurations
+
+### Runtime Security Sensor
+
+Real-time attack detection middleware for FastAPI and Flask applications.
+
+```python
+from fastapi import FastAPI
+from security_use.sensor import SecurityMiddleware
+
+app = FastAPI()
+app.add_middleware(
+    SecurityMiddleware,
+    webhook_url="https://your-siem.com/alerts",
+    block_on_detection=True,
+)
+```
+
+**Detects:**
+- SQL Injection (`' OR 1=1--`, `UNION SELECT`, etc.)
+- Cross-Site Scripting (`<script>`, `javascript:`, event handlers)
+- Path Traversal (`../`, `%2e%2e%2f`, etc.)
+- Command Injection (`;cat /etc/passwd`, backticks, `$()`)
+- Rate limit violations
+- Suspicious user agents (sqlmap, nikto, etc.)
 
 ## Installation
 
@@ -14,22 +102,40 @@ A security scanning library for Python projects. Provides vulnerability scanning
 pip install security-use
 ```
 
-## Usage
-
-### Command Line
+**With optional dependencies:**
 
 ```bash
-# Scan dependencies
-security-use scan deps /path/to/project
+# For runtime sensor with FastAPI/Flask
+pip install security-use[sensor]
 
-# Scan IaC files
-security-use scan iac /path/to/terraform
+# For development
+pip install security-use[dev]
+```
+
+**Requirements:** Python 3.10+
+
+## Quick Start
+
+### Command Line Interface
+
+```bash
+# Scan dependencies for vulnerabilities
+security-use scan deps ./my-project
+
+# Scan Infrastructure as Code
+security-use scan iac ./terraform
 
 # Scan everything
-security-use scan all /path/to/project
+security-use scan all ./my-project
+
+# Output as JSON
+security-use scan all ./my-project --format json
+
+# Output as SARIF (for GitHub Code Scanning)
+security-use scan all ./my-project --format sarif > results.sarif
 
 # Auto-fix vulnerable dependencies
-security-use fix /path/to/project
+security-use fix ./my-project
 ```
 
 ### Python API
@@ -38,18 +144,233 @@ security-use fix /path/to/project
 from security_use import scan_dependencies, scan_iac
 
 # Scan dependencies
-result = scan_dependencies("/path/to/project")
+result = scan_dependencies("./my-project")
 
+print(f"Found {len(result.vulnerabilities)} vulnerabilities")
 for vuln in result.vulnerabilities:
-    print(f"{vuln.package}: {vuln.severity.value}")
+    print(f"  {vuln.severity.value}: {vuln.package} - {vuln.title}")
 
 # Scan IaC
-result = scan_iac("/path/to/terraform")
+result = scan_iac("./terraform")
 
 for finding in result.iac_findings:
-    print(f"{finding.rule_id}: {finding.title}")
+    print(f"  [{finding.severity.value}] {finding.rule_id}")
+    print(f"    {finding.title}")
+    print(f"    {finding.file_path}:{finding.line_number}")
 ```
+
+### Runtime Sensor
+
+**FastAPI (ASGI):**
+
+```python
+from fastapi import FastAPI
+from security_use.sensor import SecurityMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    SecurityMiddleware,
+    webhook_url="https://your-siem.com/webhook",
+    block_on_detection=True,         # Return 403 on attacks
+    excluded_paths=["/health", "/metrics"],
+    rate_limit_threshold=100,        # Requests per minute per IP
+)
+
+@app.get("/api/users")
+def get_users():
+    return {"users": []}
+```
+
+**Flask (WSGI):**
+
+```python
+from flask import Flask
+from security_use.sensor import FlaskSecurityMiddleware
+
+app = Flask(__name__)
+
+app.wsgi_app = FlaskSecurityMiddleware(
+    app.wsgi_app,
+    webhook_url="https://your-siem.com/webhook",
+    block_on_detection=False,  # Log only, don't block
+)
+
+@app.route("/api/users")
+def get_users():
+    return {"users": []}
+```
+
+**Webhook Alert Format:**
+
+```json
+{
+  "version": "1.0",
+  "event": {
+    "id": "evt_abc123def456",
+    "type": "security_alert",
+    "timestamp": "2024-01-25T12:00:00.000Z"
+  },
+  "alert": {
+    "type": "sql_injection",
+    "severity": "HIGH",
+    "confidence": 0.95,
+    "description": "SQL injection attempt detected"
+  },
+  "request": {
+    "method": "POST",
+    "path": "/api/users/search",
+    "source_ip": "192.168.1.100",
+    "headers": {}
+  },
+  "matched": {
+    "pattern": "' OR 1=1--",
+    "location": "body",
+    "field": "search_query"
+  },
+  "action_taken": "blocked"
+}
+```
+
+## Supported Formats
+
+### Dependency Files
+
+| Ecosystem | File | Status |
+|-----------|------|--------|
+| Python | `requirements.txt` | ✅ Full support |
+| Python | `Pipfile` / `Pipfile.lock` | ✅ Full support |
+| Python | `pyproject.toml` | ✅ Full support |
+| Python | `poetry.lock` | ✅ Full support |
+| JavaScript | `package.json` / `package-lock.json` | ✅ Full support |
+| Java | `pom.xml` | ✅ Full support |
+
+### IaC Formats
+
+| Platform | Format | Status |
+|----------|--------|--------|
+| Terraform | `.tf` (HCL2) | ✅ Full support |
+| Terraform | `.tf.json` | ✅ Full support |
+| CloudFormation | `.yaml` / `.yml` | ✅ Full support |
+| CloudFormation | `.json` | ✅ Full support |
+
+## CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+name: Security Scan
+
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SecurityUse
+        run: pip install security-use
+
+      - name: Run security scan
+        run: security-use scan all . --format sarif > results.sarif
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+```
+
+### GitLab CI
+
+```yaml
+security-scan:
+  image: python:3.11
+  script:
+    - pip install security-use
+    - security-use scan all . --format json > security-report.json
+  artifacts:
+    reports:
+      security: security-report.json
+```
+
+### Pre-commit Hook
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: security-use
+        name: Security Scan
+        entry: security-use scan deps . --fail-on high
+        language: python
+        additional_dependencies: [security-use]
+        pass_filenames: false
+```
+
+## Configuration
+
+Create a `security-use.yaml` in your project root:
+
+```yaml
+# Dependency scanning
+dependencies:
+  enabled: true
+  fail_on: high  # critical, high, medium, low
+  ignore:
+    - CVE-2021-12345  # Known false positive
+
+# IaC scanning
+iac:
+  enabled: true
+  fail_on: high
+  exclude_paths:
+    - "examples/"
+    - "test/"
+
+# Output
+output:
+  format: table  # table, json, sarif
+  verbose: false
+```
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+```bash
+# Clone the repository
+git clone https://github.com/security-use/security-use.git
+cd security-use
+
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run linting
+ruff check .
+```
+
+## Security
+
+Found a security vulnerability? Please report it privately via [security@security-use.dev](mailto:security@security-use.dev) or through [GitHub Security Advisories](https://github.com/security-use/security-use/security/advisories/new).
 
 ## License
 
-MIT
+[MIT License](LICENSE) - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  <a href="https://security-use.dev">Website</a> •
+  <a href="https://github.com/security-use/security-use">GitHub</a> •
+  <a href="https://pypi.org/project/security-use/">PyPI</a>
+</p>
