@@ -14,6 +14,8 @@ class Dependency:
     version_spec: Optional[str] = None
     line_number: Optional[int] = None
     extras: list[str] | None = None
+    source: Optional[str] = None
+    ecosystem: str = "PyPI"
 
     @property
     def normalized_name(self) -> str:

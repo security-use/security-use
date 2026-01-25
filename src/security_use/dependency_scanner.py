@@ -7,6 +7,7 @@ from security_use.models import ScanResult, Vulnerability
 from security_use.parsers import (
     Dependency,
     DependencyParser,
+    MavenParser,
     PipfileParser,
     PoetryLockParser,
     PyProjectParser,
@@ -24,6 +25,7 @@ class DependencyScanner:
         PipfileParser,
         PipfileLockParser,
         PoetryLockParser,
+        MavenParser,
     ]
 
     DEPENDENCY_FILES = [
@@ -36,6 +38,7 @@ class DependencyScanner:
         "Pipfile.lock",
         "poetry.lock",
         "setup.py",
+        "pom.xml",
     ]
 
     def __init__(self) -> None:
@@ -129,26 +132,30 @@ class DependencyScanner:
         """
         vulnerabilities = []
 
-        # Build package list for batch query
-        packages = [
-            (dep.name, dep.version)
-            for dep in dependencies
-            if dep.version is not None
-        ]
-
-        if not packages:
-            return vulnerabilities
-
-        # Query OSV for vulnerabilities
-        vuln_results = self.osv_client.query_batch(packages)
-
+        # Group dependencies by ecosystem
+        by_ecosystem: dict[str, list[Dependency]] = {}
         for dep in dependencies:
             if dep.version is None:
                 continue
+            ecosystem = getattr(dep, "ecosystem", "PyPI") or "PyPI"
+            if ecosystem not in by_ecosystem:
+                by_ecosystem[ecosystem] = []
+            by_ecosystem[ecosystem].append(dep)
 
-            key = (dep.normalized_name, dep.version)
-            if key in vuln_results:
-                vulnerabilities.extend(vuln_results[key])
+        # Query each ecosystem separately
+        for ecosystem, deps in by_ecosystem.items():
+            packages = [(dep.name, dep.version) for dep in deps]
+
+            if not packages:
+                continue
+
+            # Query OSV for vulnerabilities
+            vuln_results = self.osv_client.query_batch(packages, ecosystem=ecosystem)
+
+            for dep in deps:
+                key = (dep.normalized_name, dep.version)
+                if key in vuln_results:
+                    vulnerabilities.extend(vuln_results[key])
 
         return vulnerabilities
 
