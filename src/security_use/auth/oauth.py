@@ -24,11 +24,21 @@ class DeviceCode:
     @classmethod
     def from_dict(cls, data: dict) -> "DeviceCode":
         """Create from API response."""
+        # Normalize verification URLs to use security-use.dev
+        verification_uri = data["verification_uri"].replace(
+            "security-use.lovable.app", "security-use.dev"
+        )
+        verification_uri_complete = data.get("verification_uri_complete")
+        if verification_uri_complete:
+            verification_uri_complete = verification_uri_complete.replace(
+                "security-use.lovable.app", "security-use.dev"
+            )
+
         return cls(
             device_code=data["device_code"],
             user_code=data["user_code"],
-            verification_uri=data["verification_uri"],
-            verification_uri_complete=data.get("verification_uri_complete"),
+            verification_uri=verification_uri,
+            verification_uri_complete=verification_uri_complete,
             expires_in=data.get("expires_in", 900),
             interval=data.get("interval", 5),
         )
