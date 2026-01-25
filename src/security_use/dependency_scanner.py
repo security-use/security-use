@@ -8,6 +8,8 @@ from security_use.parsers import (
     Dependency,
     DependencyParser,
     MavenParser,
+    NpmLockParser,
+    NpmParser,
     PipfileParser,
     PoetryLockParser,
     PyProjectParser,
@@ -26,6 +28,8 @@ class DependencyScanner:
         PipfileLockParser,
         PoetryLockParser,
         MavenParser,
+        NpmParser,
+        NpmLockParser,
     ]
 
     DEPENDENCY_FILES = [
@@ -39,6 +43,8 @@ class DependencyScanner:
         "poetry.lock",
         "setup.py",
         "pom.xml",
+        "package.json",
+        "package-lock.json",
     ]
 
     def __init__(self) -> None:
@@ -159,30 +165,38 @@ class DependencyScanner:
 
         return vulnerabilities
 
-    def _find_dependency_files(self, directory: Path) -> list[Path]:
-        """Find all dependency files in a directory.
+    def _find_dependency_files(self, directory: Path, max_depth: int = 4) -> list[Path]:
+        """Find all dependency files in a directory recursively.
 
         Args:
             directory: Directory to search.
+            max_depth: Maximum depth to search (default: 4).
 
         Returns:
             List of dependency file paths.
         """
         files = []
+        # Directories to skip (contain many nested dependencies we don't want to scan)
+        skip_dirs = {
+            "node_modules", ".git", ".venv", "venv", "__pycache__",
+            ".tox", ".pytest_cache", "dist", "build", ".eggs",
+            "target", ".gradle", ".m2"
+        }
 
-        for filename in self.DEPENDENCY_FILES:
-            # Check root directory
-            file_path = directory / filename
-            if file_path.exists():
-                files.append(file_path)
+        def search_dir(path: Path, depth: int) -> None:
+            if depth > max_depth:
+                return
 
-            # Check subdirectories (one level deep)
-            for subdir in directory.iterdir():
-                if subdir.is_dir() and not subdir.name.startswith("."):
-                    sub_file = subdir / filename
-                    if sub_file.exists():
-                        files.append(sub_file)
+            try:
+                for item in path.iterdir():
+                    if item.is_file() and item.name in self.DEPENDENCY_FILES:
+                        files.append(item)
+                    elif item.is_dir() and not item.name.startswith(".") and item.name not in skip_dirs:
+                        search_dir(item, depth + 1)
+            except PermissionError:
+                pass
 
+        search_dir(directory, 0)
         return files
 
     def _get_parser(self, file_type: str) -> Optional[DependencyParser]:

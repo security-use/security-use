@@ -6,6 +6,7 @@ from security_use.parsers.pyproject import PyProjectParser
 from security_use.parsers.pipfile import PipfileParser
 from security_use.parsers.poetry_lock import PoetryLockParser
 from security_use.parsers.maven import MavenParser
+from security_use.parsers.npm import NpmParser, NpmLockParser
 
 __all__ = [
     "Dependency",
@@ -15,4 +16,6 @@ __all__ = [
     "PipfileParser",
     "PoetryLockParser",
     "MavenParser",
+    "NpmParser",
+    "NpmLockParser",
 ]
