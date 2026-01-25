@@ -31,7 +31,7 @@
 ```bash
 $ security-use scan all ./my-project
 
- SecurityUse v0.1.4
+ SecurityUse v0.2.1
 
  Scanning dependencies...
  ✓ Found 3 vulnerabilities in 47 packages
@@ -96,6 +96,28 @@ app.add_middleware(
 - Rate limit violations
 - Suspicious user agents (sqlmap, nikto, etc.)
 
+### Auto-Fix
+
+Automatically remediate security issues with a single command.
+
+```bash
+security-use fix ./my-project
+```
+
+**Dependency Fixes:**
+- Updates vulnerable packages to patched versions
+- Supports `requirements.txt`, `Pipfile`, `pyproject.toml`
+
+**IaC Fixes:**
+
+| Rule | Issue | Auto-Fix |
+|------|-------|----------|
+| CKV_AWS_19 | S3 bucket without encryption | Adds AES256 server-side encryption |
+| CKV_AWS_20 | S3 bucket with public access | Changes ACL to private |
+| CKV_AWS_3 | EBS volume unencrypted | Sets `encrypted = true` |
+| CKV_AWS_16 | RDS instance unencrypted | Adds `storage_encrypted = true` |
+| CKV_AWS_23 | Open security group ingress | Restricts CIDR blocks |
+
 ## Installation
 
 ```bash
@@ -134,8 +156,13 @@ security-use scan all ./my-project --format json
 # Output as SARIF (for GitHub Code Scanning)
 security-use scan all ./my-project --format sarif > results.sarif
 
-# Auto-fix vulnerable dependencies
+# Auto-fix vulnerabilities and IaC misconfigurations
 security-use fix ./my-project
+
+# Auto-fix with options
+security-use fix ./my-project --dry-run      # Preview changes
+security-use fix ./my-project --deps-only    # Only fix dependencies
+security-use fix ./my-project --iac-only     # Only fix IaC issues
 ```
 
 ### Python API
