@@ -148,7 +148,7 @@ class TestFix:
 
     def test_fix_no_vulnerabilities(self, runner, tmp_path):
         result = runner.invoke(main, ["fix", str(tmp_path)])
-        assert "No vulnerabilities found" in result.output
+        assert "No dependency vulnerabilities found" in result.output or "No fixes were applied" in result.output
 
 
 class TestOutputFile:
