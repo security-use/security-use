@@ -75,6 +75,79 @@ def _output_result(
             console.print(report)
 
 
+def _get_git_info() -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Get git repository info (repo name, branch, commit)."""
+    import subprocess
+
+    try:
+        # Get repo name from remote URL
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5
+        )
+        repo_name = None
+        if result.returncode == 0:
+            url = result.stdout.strip()
+            # Extract repo name from URL
+            if url.endswith(".git"):
+                url = url[:-4]
+            repo_name = url.split("/")[-1]
+
+        # Get current branch
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=5
+        )
+        branch = result.stdout.strip() if result.returncode == 0 else None
+
+        # Get current commit SHA
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5
+        )
+        commit = result.stdout.strip() if result.returncode == 0 else None
+
+        return repo_name, branch, commit
+    except Exception:
+        return None, None, None
+
+
+def _auto_upload_results(result: ScanResult, scan_type: str, path: str) -> None:
+    """Automatically upload scan results to dashboard if authenticated."""
+    from security_use.auth import AuthConfig, DashboardClient, OAuthError
+
+    config = AuthConfig()
+    if not config.is_authenticated:
+        return  # Silently skip if not authenticated
+
+    try:
+        client = DashboardClient(config)
+        repo_name, branch, commit = _get_git_info()
+
+        # Use path as repo name if git info not available
+        if not repo_name:
+            repo_name = Path(path).resolve().name
+
+        response = client.upload_scan(
+            result=result,
+            scan_type=scan_type,
+            repo_name=repo_name,
+            branch=branch,
+            commit_sha=commit,
+        )
+
+        summary = response.get("summary", {})
+        total = summary.get("total", result.total_issues)
+        console.print(f"\n[dim]Results synced to dashboard ({total} finding(s))[/dim]")
+
+    except OAuthError:
+        # Silently ignore auth errors - user might have expired token
+        pass
+    except Exception:
+        # Don't fail the scan if upload fails
+        pass
+
+
 @click.group()
 @click.version_option(version=__version__, prog_name="security-use")
 def main() -> None:
@@ -129,6 +202,10 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
     # Output results
     _output_result(result, format, output)
 
+    # Auto-upload to dashboard if authenticated
+    if not is_machine_format:
+        _auto_upload_results(result, "deps", path)
+
     # Exit with error code if vulnerabilities found
     if result.vulnerabilities:
         if not is_machine_format:
@@ -181,6 +258,10 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str]) -> No
 
     # Output results
     _output_result(result, format, output)
+
+    # Auto-upload to dashboard if authenticated
+    if not is_machine_format:
+        _auto_upload_results(result, "iac", path)
 
     # Exit with error code if findings found
     if result.iac_findings:
@@ -249,6 +330,10 @@ def scan_all(path: str, format: str, severity: str, output: Optional[str]) -> No
 
     # Output results
     _output_result(result, format, output)
+
+    # Auto-upload to dashboard if authenticated (use "deps" as primary type for combined scan)
+    if not is_machine_format:
+        _auto_upload_results(result, "deps", path)
 
     # Exit with error code if issues found
     if result.total_issues > 0:

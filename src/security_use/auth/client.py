@@ -57,58 +57,74 @@ class DashboardClient:
     def upload_scan(
         self,
         result: ScanResult,
-        project_name: Optional[str] = None,
-        project_path: Optional[str] = None,
+        scan_type: str = "deps",
+        repo_name: Optional[str] = None,
         branch: Optional[str] = None,
-        commit: Optional[str] = None,
+        commit_sha: Optional[str] = None,
     ) -> dict:
         """Upload scan results to the dashboard.
 
         Args:
             result: The scan result to upload.
-            project_name: Optional project name.
-            project_path: Optional local path that was scanned.
+            scan_type: Type of scan (deps, sast, iac, runtime).
+            repo_name: Optional repository name.
             branch: Optional git branch name.
-            commit: Optional git commit SHA.
+            commit_sha: Optional git commit SHA.
 
         Returns:
-            API response with scan ID and dashboard URL.
+            API response with scan ID and summary.
 
         Raises:
             OAuthError: If not authenticated or upload fails.
         """
         self._ensure_authenticated()
 
+        # Convert vulnerabilities and IaC findings to the expected format
+        findings = []
+
+        for vuln in result.vulnerabilities:
+            findings.append({
+                "finding_type": "vulnerability",
+                "category": "deps",
+                "severity": vuln.severity.value,
+                "title": vuln.title,
+                "description": vuln.description or "",
+                "recommendation": f"Upgrade to version {vuln.fixed_version}" if vuln.fixed_version else "No fix available",
+                "cve_id": vuln.id,  # Vulnerability ID is typically the CVE ID
+                "package_name": vuln.package,
+                "package_version": vuln.installed_version,
+                "fixed_version": vuln.fixed_version,
+            })
+
+        for finding in result.iac_findings:
+            findings.append({
+                "finding_type": "misconfiguration",
+                "category": "iac",
+                "severity": finding.severity.value,
+                "title": finding.title,
+                "description": finding.description or "",
+                "file_path": finding.file_path,
+                "line_number": finding.line_number,
+                "recommendation": finding.remediation or "",
+            })
+
         payload = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "cli_version": __version__,
-            "platform": {
-                "system": platform.system(),
-                "release": platform.release(),
-                "python": platform.python_version(),
-            },
-            "project": {
-                "name": project_name,
-                "path": project_path,
+            "scan_type": scan_type,
+            "status": "completed",
+            "findings": findings,
+            "metadata": {
+                "cli_version": __version__,
+                "os": platform.system().lower(),
+                "repo_name": repo_name,
                 "branch": branch,
-                "commit": commit,
+                "commit_sha": commit_sha,
             },
-            "summary": {
-                "total_issues": result.total_issues,
-                "critical_count": result.critical_count,
-                "high_count": result.high_count,
-                "scanned_files": len(result.scanned_files),
-            },
-            "vulnerabilities": [v.to_dict() for v in result.vulnerabilities],
-            "iac_findings": [f.to_dict() for f in result.iac_findings],
-            "scanned_files": result.scanned_files,
-            "errors": result.errors,
         }
 
         try:
             with httpx.Client(timeout=60.0) as client:
                 response = client.post(
-                    f"{self.api_url}/v1/scans",
+                    f"{self.api_url}/scan-upload",
                     json=payload,
                     headers=self._get_headers(),
                 )
@@ -116,6 +132,11 @@ class DashboardClient:
                 if response.status_code == 401:
                     raise OAuthError(
                         "Authentication failed. Run 'security-use auth login' to re-authenticate."
+                    )
+
+                if response.status_code == 403:
+                    raise OAuthError(
+                        "Insufficient permissions. Token lacks scan:upload scope."
                     )
 
                 if response.status_code not in (200, 201):
