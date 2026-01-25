@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "security-use"
-version = "0.2.5"
+version = "0.2.6"
 description = "Security scanning tool for dependencies and Infrastructure as Code"
 readme = "README.md"
 license = "MIT"
