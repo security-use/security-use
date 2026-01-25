@@ -3,11 +3,11 @@
 from pathlib import Path
 from typing import Optional
 
-from securescan.models import IaCFinding, ScanResult
-from securescan.iac.base import IaCParser, IaCResource
-from securescan.iac.terraform import TerraformParser
-from securescan.iac.cloudformation import CloudFormationParser
-from securescan.iac.rules.registry import get_registry
+from security_use.models import IaCFinding, ScanResult
+from security_use.iac.base import IaCParser, IaCResource
+from security_use.iac.terraform import TerraformParser
+from security_use.iac.cloudformation import CloudFormationParser
+from security_use.iac.rules.registry import get_registry
 
 
 class IaCScanner:

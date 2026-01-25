@@ -9,7 +9,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 
-from securescan.models import ScanResult, Severity, Vulnerability, IaCFinding
+from security_use.models import ScanResult, Severity, Vulnerability, IaCFinding
 
 
 class ReportGenerator(ABC):
@@ -215,7 +215,7 @@ class SARIFReporter(ReportGenerator):
     SARIF_VERSION = "2.1.0"
     SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 
-    def __init__(self, tool_name: str = "securescan", tool_version: str = "0.1.0") -> None:
+    def __init__(self, tool_name: str = "security-use", tool_version: str = "0.1.0") -> None:
         """Initialize SARIF reporter.
 
         Args:
@@ -341,7 +341,7 @@ class SARIFReporter(ReportGenerator):
 def create_reporter(
     format: str,
     show_details: bool = True,
-    tool_name: str = "securescan",
+    tool_name: str = "security-use",
     tool_version: str = "0.1.0",
 ) -> ReportGenerator:
     """Create a reporter for the specified format.

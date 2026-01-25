@@ -1,8 +1,8 @@
 """IaC security rules."""
 
-from securescan.iac.rules.base import Rule, RuleResult
-from securescan.iac.rules.registry import RuleRegistry, get_registry
-from securescan.iac.rules.aws import (
+from security_use.iac.rules.base import Rule, RuleResult
+from security_use.iac.rules.registry import RuleRegistry, get_registry
+from security_use.iac.rules.aws import (
     S3BucketEncryptionRule,
     S3BucketPublicAccessRule,
     SecurityGroupOpenIngressRule,

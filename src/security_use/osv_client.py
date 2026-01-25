@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 import httpx
 
-from securescan.models import Severity, Vulnerability
+from security_use.models import Severity, Vulnerability
 
 
 @dataclass

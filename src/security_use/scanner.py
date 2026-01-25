@@ -1,9 +1,9 @@
-"""Main scanner interface for securescan."""
+"""Main scanner interface for security_use."""
 
 from pathlib import Path
 from typing import Optional
 
-from securescan.models import ScanResult
+from security_use.models import ScanResult
 
 
 def scan_dependencies(
@@ -21,7 +21,7 @@ def scan_dependencies(
     Returns:
         ScanResult containing any vulnerabilities found.
     """
-    from securescan.dependency_scanner import DependencyScanner
+    from security_use.dependency_scanner import DependencyScanner
 
     scanner = DependencyScanner()
 
@@ -47,7 +47,7 @@ def scan_iac(
     Returns:
         ScanResult containing any IaC findings.
     """
-    from securescan.iac_scanner import IaCScanner
+    from security_use.iac_scanner import IaCScanner
 
     scanner = IaCScanner()
 
@@ -68,7 +68,7 @@ def get_vulnerability_fix(vulnerability_id: str, package: str) -> Optional[str]:
     Returns:
         Recommended version to upgrade to, or None if unknown.
     """
-    from securescan.osv_client import OSVClient
+    from security_use.osv_client import OSVClient
 
     client = OSVClient()
     return client.get_fix_version(vulnerability_id, package)

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "securescan"
+name = "security-use"
 version = "0.1.0"
 description = "Security scanning tool for dependencies and Infrastructure as Code"
 readme = "README.md"
@@ -47,7 +47,7 @@ dev = [
 ]
 
 [project.scripts]
-securescan = "securescan.cli:main"
+security-use = "security_use.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/security-use/security-use"
@@ -55,7 +55,7 @@ Repository = "https://github.com/security-use/security-use"
 Issues = "https://github.com/security-use/security-use/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/securescan", "src/security_use"]
+packages = ["src/security_use"]
 
 [tool.ruff]
 line-length = 100

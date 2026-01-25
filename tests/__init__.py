@@ -1,1 +1,1 @@
-"""Tests for securescan package."""
+"""Tests for security_use package."""

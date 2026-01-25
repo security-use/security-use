@@ -1,4 +1,4 @@
-# SecureScan
+# security-use
 
 A security scanning library for Python projects. Provides vulnerability scanning for dependencies and Infrastructure as Code (IaC) files.
 
@@ -11,7 +11,7 @@ A security scanning library for Python projects. Provides vulnerability scanning
 ## Installation
 
 ```bash
-pip install securescan
+pip install security-use
 ```
 
 ## Usage
@@ -20,29 +20,33 @@ pip install securescan
 
 ```bash
 # Scan dependencies
-securescan deps /path/to/project
+security-use scan deps /path/to/project
 
 # Scan IaC files
-securescan iac /path/to/terraform
+security-use scan iac /path/to/terraform
+
+# Scan everything
+security-use scan all /path/to/project
+
+# Auto-fix vulnerable dependencies
+security-use fix /path/to/project
 ```
 
 ### Python API
 
 ```python
-from security_use import DependencyScanner, IaCScanner
+from security_use import scan_dependencies, scan_iac
 
 # Scan dependencies
-scanner = DependencyScanner()
-result = scanner.scan("/path/to/project")
+result = scan_dependencies("/path/to/project")
 
 for vuln in result.vulnerabilities:
-    print(f"{vuln.package_name}: {vuln.severity}")
+    print(f"{vuln.package}: {vuln.severity.value}")
 
 # Scan IaC
-iac_scanner = IaCScanner()
-result = iac_scanner.scan("/path/to/terraform")
+result = scan_iac("/path/to/terraform")
 
-for finding in result.findings:
+for finding in result.iac_findings:
     print(f"{finding.rule_id}: {finding.title}")
 ```
 

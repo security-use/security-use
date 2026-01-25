@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any, Optional
 
-from securescan.parsers.base import Dependency, DependencyParser
+from security_use.parsers.base import Dependency, DependencyParser
 
 try:
     import tomllib

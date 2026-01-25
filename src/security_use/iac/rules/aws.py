@@ -1,8 +1,8 @@
 """AWS security rules for IaC scanning."""
 
-from securescan.models import Severity
-from securescan.iac.base import IaCResource
-from securescan.iac.rules.base import Rule, RuleResult
+from security_use.models import Severity
+from security_use.iac.base import IaCResource
+from security_use.iac.rules.base import Rule, RuleResult
 
 
 class S3BucketEncryptionRule(Rule):

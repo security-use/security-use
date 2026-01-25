@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import yaml
 
-from securescan.iac.base import IaCParser, IaCResource, ParseResult
+from security_use.iac.base import IaCParser, IaCResource, ParseResult
 
 
 class CloudFormationParser(IaCParser):

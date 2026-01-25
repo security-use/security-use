@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from securescan.osv_client import OSVClient
-from securescan.models import Severity
+from security_use.osv_client import OSVClient
+from security_use.models import Severity
 
 
 class TestOSVClient:

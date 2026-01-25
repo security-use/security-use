@@ -2,13 +2,13 @@
 
 import pytest
 
-from securescan.parsers import (
+from security_use.parsers import (
     RequirementsParser,
     PyProjectParser,
     PipfileParser,
     PoetryLockParser,
 )
-from securescan.parsers.pipfile import PipfileLockParser
+from security_use.parsers.pipfile import PipfileLockParser
 
 
 class TestRequirementsParser:

@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 import hcl2
 
-from securescan.iac.base import IaCParser, IaCResource, ParseResult
+from security_use.iac.base import IaCParser, IaCResource, ParseResult
 
 
 class TerraformParser(IaCParser):

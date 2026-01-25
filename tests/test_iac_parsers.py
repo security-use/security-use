@@ -2,8 +2,8 @@
 
 import pytest
 
-from securescan.iac.terraform import TerraformParser
-from securescan.iac.cloudformation import CloudFormationParser
+from security_use.iac.terraform import TerraformParser
+from security_use.iac.cloudformation import CloudFormationParser
 
 
 class TestTerraformParser:
@@ -213,7 +213,7 @@ class TestIaCResource:
     """Tests for IaCResource helper methods."""
 
     def test_get_config_simple(self):
-        from securescan.iac.base import IaCResource
+        from security_use.iac.base import IaCResource
 
         resource = IaCResource(
             resource_type="aws_s3_bucket",
@@ -229,7 +229,7 @@ class TestIaCResource:
         assert resource.get_config("missing", default="default") == "default"
 
     def test_get_config_nested(self):
-        from securescan.iac.base import IaCResource
+        from security_use.iac.base import IaCResource
 
         resource = IaCResource(
             resource_type="aws_s3_bucket",

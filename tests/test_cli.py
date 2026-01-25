@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from securescan.cli import main
+from security_use.cli import main
 
 
 @pytest.fixture
@@ -42,12 +42,12 @@ class TestVersion:
     def test_version_command(self, runner):
         result = runner.invoke(main, ["version"])
         assert result.exit_code == 0
-        assert "securescan version" in result.output
+        assert "security-use version" in result.output
 
     def test_version_option(self, runner):
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
-        assert "securescan" in result.output
+        assert "security-use" in result.output
 
 
 class TestScanDeps:

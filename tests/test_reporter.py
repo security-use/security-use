@@ -4,13 +4,13 @@ import json
 
 import pytest
 
-from securescan.models import (
+from security_use.models import (
     IaCFinding,
     ScanResult,
     Severity,
     Vulnerability,
 )
-from securescan.reporter import (
+from security_use.reporter import (
     JSONReporter,
     SARIFReporter,
     TableReporter,

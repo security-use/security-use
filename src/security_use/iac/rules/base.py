@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from securescan.models import Severity
-from securescan.iac.base import IaCResource
+from security_use.models import Severity
+from security_use.iac.base import IaCResource
 
 
 @dataclass

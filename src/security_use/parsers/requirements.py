@@ -3,7 +3,7 @@
 import re
 from typing import Optional
 
-from securescan.parsers.base import Dependency, DependencyParser
+from security_use.parsers.base import Dependency, DependencyParser
 
 
 class RequirementsParser(DependencyParser):

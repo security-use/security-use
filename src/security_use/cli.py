@@ -1,4 +1,4 @@
-"""Command-line interface for securescan."""
+"""Command-line interface for security-use."""
 
 import sys
 from pathlib import Path
@@ -7,9 +7,9 @@ from typing import Optional
 import click
 from rich.console import Console
 
-from securescan import __version__
-from securescan.models import Severity, ScanResult
-from securescan.reporter import create_reporter
+from security_use import __version__
+from security_use.models import Severity, ScanResult
+from security_use.reporter import create_reporter
 
 
 console = Console()
@@ -76,9 +76,9 @@ def _output_result(
 
 
 @click.group()
-@click.version_option(version=__version__, prog_name="securescan")
+@click.version_option(version=__version__, prog_name="security-use")
 def main() -> None:
-    """SecureScan - Security scanning tool for dependencies and IaC."""
+    """security-use - Security scanning tool for dependencies and IaC."""
     pass
 
 
@@ -112,7 +112,7 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
 
     PATH is the file or directory to scan (default: current directory).
     """
-    from securescan.dependency_scanner import DependencyScanner
+    from security_use.dependency_scanner import DependencyScanner
 
     console.print(f"[blue]Scanning dependencies in {path}...[/blue]")
 
@@ -160,7 +160,7 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str]) -> No
 
     PATH is the file or directory to scan (default: current directory).
     """
-    from securescan.iac_scanner import IaCScanner
+    from security_use.iac_scanner import IaCScanner
 
     console.print(f"[blue]Scanning IaC files in {path}...[/blue]")
 
@@ -208,8 +208,8 @@ def scan_all(path: str, format: str, severity: str, output: Optional[str]) -> No
 
     PATH is the file or directory to scan (default: current directory).
     """
-    from securescan.dependency_scanner import DependencyScanner
-    from securescan.iac_scanner import IaCScanner
+    from security_use.dependency_scanner import DependencyScanner
+    from security_use.iac_scanner import IaCScanner
 
     console.print(f"[blue]Scanning {path} for all security issues...[/blue]")
 
@@ -257,7 +257,7 @@ def fix(path: str, dry_run: bool) -> None:
 
     PATH is the file or directory to scan and fix (default: current directory).
     """
-    from securescan.dependency_scanner import DependencyScanner
+    from security_use.dependency_scanner import DependencyScanner
 
     console.print(f"[blue]Scanning dependencies in {path}...[/blue]")
 
@@ -326,7 +326,7 @@ def _fix_requirements_file(
 @main.command()
 def version() -> None:
     """Show version information."""
-    click.echo(f"securescan version {__version__}")
+    click.echo(f"security-use version {__version__}")
 
 
 if __name__ == "__main__":

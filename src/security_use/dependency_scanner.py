@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import Optional
 
-from securescan.models import ScanResult, Vulnerability
-from securescan.parsers import (
+from security_use.models import ScanResult, Vulnerability
+from security_use.parsers import (
     Dependency,
     DependencyParser,
     PipfileParser,
@@ -12,7 +12,7 @@ from securescan.parsers import (
     PyProjectParser,
     RequirementsParser,
 )
-from securescan.parsers.pipfile import PipfileLockParser
+from security_use.parsers.pipfile import PipfileLockParser
 
 
 class DependencyScanner:
@@ -46,7 +46,7 @@ class DependencyScanner:
     def osv_client(self) -> "OSVClient":
         """Lazy-load the OSV client."""
         if self._osv_client is None:
-            from securescan.osv_client import OSVClient
+            from security_use.osv_client import OSVClient
             self._osv_client = OSVClient()
         return self._osv_client
 

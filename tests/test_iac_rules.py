@@ -2,10 +2,10 @@
 
 import pytest
 
-from securescan.models import Severity
-from securescan.iac.base import IaCResource
-from securescan.iac.rules.registry import RuleRegistry, get_registry
-from securescan.iac.rules.aws import (
+from security_use.models import Severity
+from security_use.iac.base import IaCResource
+from security_use.iac.rules.registry import RuleRegistry, get_registry
+from security_use.iac.rules.aws import (
     S3BucketEncryptionRule,
     S3BucketPublicAccessRule,
     SecurityGroupOpenIngressRule,

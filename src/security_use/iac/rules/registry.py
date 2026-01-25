@@ -2,7 +2,7 @@
 
 from typing import Optional, Type
 
-from securescan.iac.rules.base import Rule
+from security_use.iac.rules.base import Rule
 
 
 class RuleRegistry:
@@ -57,7 +57,7 @@ class RuleRegistry:
         Returns:
             List of applicable rules.
         """
-        from securescan.iac.base import IaCResource
+        from security_use.iac.base import IaCResource
 
         # Create a dummy resource to check applicability
         dummy = IaCResource(
@@ -94,7 +94,7 @@ def get_registry() -> RuleRegistry:
 
 def _register_default_rules(registry: RuleRegistry) -> None:
     """Register all default rules."""
-    from securescan.iac.rules.aws import (
+    from security_use.iac.rules.aws import (
         S3BucketEncryptionRule,
         S3BucketPublicAccessRule,
         SecurityGroupOpenIngressRule,
