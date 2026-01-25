@@ -99,32 +99,37 @@ class TestOSVClient:
         assert vulns[0].fixed_version == "2.28.1"
         assert vulns[0].severity == Severity.HIGH
 
+    @patch("httpx.Client.get")
     @patch("httpx.Client.post")
-    def test_query_batch_returns_dict(self, mock_post):
+    def test_query_batch_returns_dict(self, mock_post, mock_get):
         """Test that query_batch returns correct dictionary format."""
-        mock_response = Mock()
-        mock_response.json.return_value = {
+        # Mock batch query response (returns only IDs)
+        mock_batch_response = Mock()
+        mock_batch_response.json.return_value = {
             "results": [
                 {"vulns": []},
-                {
-                    "vulns": [
-                        {
-                            "id": "GHSA-test",
-                            "summary": "Test vuln",
-                            "details": "",
-                            "affected": [
-                                {
-                                    "package": {"name": "django", "ecosystem": "PyPI"},
-                                    "ranges": [{"events": [{"introduced": "0"}]}],
-                                }
-                            ],
-                        }
-                    ]
-                },
+                {"vulns": [{"id": "GHSA-test"}]},
             ]
         }
-        mock_response.raise_for_status = Mock()
-        mock_post.return_value = mock_response
+        mock_batch_response.raise_for_status = Mock()
+        mock_post.return_value = mock_batch_response
+
+        # Mock full vulnerability fetch response
+        mock_vuln_response = Mock()
+        mock_vuln_response.json.return_value = {
+            "id": "GHSA-test",
+            "summary": "Test vuln",
+            "details": "",
+            "database_specific": {"severity": "HIGH"},
+            "affected": [
+                {
+                    "package": {"name": "django", "ecosystem": "PyPI"},
+                    "ranges": [{"events": [{"introduced": "0"}]}],
+                }
+            ],
+        }
+        mock_vuln_response.raise_for_status = Mock()
+        mock_get.return_value = mock_vuln_response
 
         client = OSVClient()
         results = client.query_batch([("requests", "2.28.0"), ("django", "3.2.0")])

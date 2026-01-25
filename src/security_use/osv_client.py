@@ -129,16 +129,23 @@ class OSVClient:
                 # On error, skip this batch
                 continue
 
-            # Parse results
+            # Parse results - batch API returns minimal data, need to fetch full details
             for idx, result in enumerate(data.get("results", [])):
                 if idx >= len(batch_packages):
                     break
 
                 name, version = batch_packages[idx]
                 normalized = self._normalize_name(name)
-                vulns = self._parse_vulnerabilities(
-                    result.get("vulns", []), name, version
-                )
+
+                # Batch API only returns IDs, fetch full vulnerability data
+                vuln_ids = [v.get("id") for v in result.get("vulns", []) if v.get("id")]
+                full_vulns = []
+                for vuln_id in vuln_ids:
+                    vuln_data = self.get_vulnerability(vuln_id)
+                    if vuln_data:
+                        full_vulns.append(vuln_data)
+
+                vulns = self._parse_vulnerabilities(full_vulns, name, version)
 
                 results[(normalized, version)] = vulns
                 cache_key = self._cache_key(name, version, ecosystem)
