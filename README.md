@@ -31,7 +31,7 @@
 ```bash
 $ security-use scan all ./my-project
 
- SecurityUse v0.2.1
+ SecurityUse v0.2.2
 
  Scanning dependencies...
  ✓ Found 3 vulnerabilities in 47 packages
@@ -118,6 +118,24 @@ security-use fix ./my-project
 | CKV_AWS_16 | RDS instance unencrypted | Adds `storage_encrypted = true` |
 | CKV_AWS_23 | Open security group ingress | Restricts CIDR blocks |
 
+### Dashboard Integration
+
+Sync your scan results to the [SecurityUse Dashboard](https://security-use.dev) for centralized monitoring, trend analysis, and team collaboration.
+
+```bash
+# Authenticate with the dashboard
+security-use auth login
+
+# Scan and upload results
+security-use sync ./my-project
+
+# Check authentication status
+security-use auth status
+
+# Logout
+security-use auth logout
+```
+
 ## Installation
 
 ```bash
@@ -163,6 +181,15 @@ security-use fix ./my-project
 security-use fix ./my-project --dry-run      # Preview changes
 security-use fix ./my-project --deps-only    # Only fix dependencies
 security-use fix ./my-project --iac-only     # Only fix IaC issues
+
+# Dashboard authentication
+security-use auth login                       # Authenticate with dashboard
+security-use auth status                      # Check auth status
+security-use auth logout                      # Clear credentials
+
+# Sync results to dashboard
+security-use sync ./my-project               # Scan and upload to dashboard
+security-use sync ./my-project --project "My App"  # With project name
 ```
 
 ### Python API
