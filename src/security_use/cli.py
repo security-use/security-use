@@ -75,15 +75,21 @@ def _output_result(
             console.print(report)
 
 
-def _get_git_info() -> tuple[Optional[str], Optional[str], Optional[str]]:
-    """Get git repository info (repo name, branch, commit)."""
+def _get_git_info(path: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Get git repository info (repo name, branch, commit) for the given path."""
     import subprocess
+
+    # Resolve to absolute path and find the directory
+    scan_path = Path(path).resolve()
+    if scan_path.is_file():
+        scan_path = scan_path.parent
 
     try:
         # Get repo name from remote URL
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            cwd=str(scan_path)
         )
         repo_name = None
         if result.returncode == 0:
@@ -96,14 +102,16 @@ def _get_git_info() -> tuple[Optional[str], Optional[str], Optional[str]]:
         # Get current branch
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            cwd=str(scan_path)
         )
         branch = result.stdout.strip() if result.returncode == 0 else None
 
         # Get current commit SHA
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            cwd=str(scan_path)
         )
         commit = result.stdout.strip() if result.returncode == 0 else None
 
@@ -122,7 +130,7 @@ def _auto_upload_results(result: ScanResult, scan_type: str, path: str) -> None:
 
     try:
         client = DashboardClient(config)
-        repo_name, branch, commit = _get_git_info()
+        repo_name, branch, commit = _get_git_info(path)
 
         # Use path as repo name if git info not available
         if not repo_name:
