@@ -9,6 +9,52 @@ import yaml
 from security_use.iac.base import IaCParser, IaCResource, ParseResult
 
 
+# Custom YAML loader that handles CloudFormation intrinsic functions
+class CloudFormationLoader(yaml.SafeLoader):
+    """YAML loader that handles CloudFormation intrinsic function tags."""
+
+    pass
+
+
+def _construct_cfn_tag(loader: yaml.SafeLoader, tag_suffix: str, node: yaml.Node) -> dict:
+    """Construct a dict representing a CloudFormation intrinsic function."""
+    if isinstance(node, yaml.ScalarNode):
+        value = loader.construct_scalar(node)
+    elif isinstance(node, yaml.SequenceNode):
+        value = loader.construct_sequence(node)
+    elif isinstance(node, yaml.MappingNode):
+        value = loader.construct_mapping(node)
+    else:
+        value = None
+    return {f"Fn::{tag_suffix}": value}
+
+
+def _construct_ref(loader: yaml.SafeLoader, node: yaml.Node) -> dict:
+    """Construct a Ref intrinsic function."""
+    return {"Ref": loader.construct_scalar(node)}
+
+
+# Register CloudFormation intrinsic function tags
+CloudFormationLoader.add_constructor("!Ref", _construct_ref)
+CloudFormationLoader.add_constructor("!GetAtt", lambda l, n: _construct_cfn_tag(l, "GetAtt", n))
+CloudFormationLoader.add_constructor("!Sub", lambda l, n: _construct_cfn_tag(l, "Sub", n))
+CloudFormationLoader.add_constructor("!Join", lambda l, n: _construct_cfn_tag(l, "Join", n))
+CloudFormationLoader.add_constructor("!If", lambda l, n: _construct_cfn_tag(l, "If", n))
+CloudFormationLoader.add_constructor("!Equals", lambda l, n: _construct_cfn_tag(l, "Equals", n))
+CloudFormationLoader.add_constructor("!And", lambda l, n: _construct_cfn_tag(l, "And", n))
+CloudFormationLoader.add_constructor("!Or", lambda l, n: _construct_cfn_tag(l, "Or", n))
+CloudFormationLoader.add_constructor("!Not", lambda l, n: _construct_cfn_tag(l, "Not", n))
+CloudFormationLoader.add_constructor("!Condition", lambda l, n: _construct_cfn_tag(l, "Condition", n))
+CloudFormationLoader.add_constructor("!FindInMap", lambda l, n: _construct_cfn_tag(l, "FindInMap", n))
+CloudFormationLoader.add_constructor("!Base64", lambda l, n: _construct_cfn_tag(l, "Base64", n))
+CloudFormationLoader.add_constructor("!Cidr", lambda l, n: _construct_cfn_tag(l, "Cidr", n))
+CloudFormationLoader.add_constructor("!GetAZs", lambda l, n: _construct_cfn_tag(l, "GetAZs", n))
+CloudFormationLoader.add_constructor("!ImportValue", lambda l, n: _construct_cfn_tag(l, "ImportValue", n))
+CloudFormationLoader.add_constructor("!Select", lambda l, n: _construct_cfn_tag(l, "Select", n))
+CloudFormationLoader.add_constructor("!Split", lambda l, n: _construct_cfn_tag(l, "Split", n))
+CloudFormationLoader.add_constructor("!Transform", lambda l, n: _construct_cfn_tag(l, "Transform", n))
+
+
 class CloudFormationParser(IaCParser):
     """Parser for AWS CloudFormation templates (YAML/JSON)."""
 
@@ -65,9 +111,9 @@ class CloudFormationParser(IaCParser):
 
     def _parse_template(self, content: str, file_path: str) -> Optional[dict[str, Any]]:
         """Parse template content as YAML or JSON."""
-        # Try YAML first (also handles JSON)
+        # Try YAML first with CloudFormation-aware loader
         try:
-            template = yaml.safe_load(content)
+            template = yaml.load(content, Loader=CloudFormationLoader)
             if isinstance(template, dict):
                 return template
         except yaml.YAMLError:

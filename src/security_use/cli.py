@@ -114,7 +114,10 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
     """
     from security_use.dependency_scanner import DependencyScanner
 
-    console.print(f"[blue]Scanning dependencies in {path}...[/blue]")
+    is_machine_format = format in ("json", "sarif")
+
+    if not is_machine_format:
+        console.print(f"[blue]Scanning dependencies in {path}...[/blue]")
 
     scanner = DependencyScanner()
     result = scanner.scan_path(Path(path))
@@ -128,12 +131,14 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
 
     # Exit with error code if vulnerabilities found
     if result.vulnerabilities:
-        console.print(
-            f"\n[red]Found {len(result.vulnerabilities)} vulnerability(ies)[/red]"
-        )
+        if not is_machine_format:
+            console.print(
+                f"\n[red]Found {len(result.vulnerabilities)} vulnerability(ies)[/red]"
+            )
         sys.exit(1)
     else:
-        console.print("\n[green]No vulnerabilities found[/green]")
+        if not is_machine_format:
+            console.print("\n[green]No vulnerabilities found[/green]")
 
 
 @scan.command("iac")
@@ -162,7 +167,10 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str]) -> No
     """
     from security_use.iac_scanner import IaCScanner
 
-    console.print(f"[blue]Scanning IaC files in {path}...[/blue]")
+    is_machine_format = format in ("json", "sarif")
+
+    if not is_machine_format:
+        console.print(f"[blue]Scanning IaC files in {path}...[/blue]")
 
     scanner = IaCScanner()
     result = scanner.scan_path(Path(path))
@@ -176,12 +184,14 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str]) -> No
 
     # Exit with error code if findings found
     if result.iac_findings:
-        console.print(
-            f"\n[red]Found {len(result.iac_findings)} security issue(s)[/red]"
-        )
+        if not is_machine_format:
+            console.print(
+                f"\n[red]Found {len(result.iac_findings)} security issue(s)[/red]"
+            )
         sys.exit(1)
     else:
-        console.print("\n[green]No security issues found[/green]")
+        if not is_machine_format:
+            console.print("\n[green]No security issues found[/green]")
 
 
 @scan.command("all")
@@ -211,7 +221,10 @@ def scan_all(path: str, format: str, severity: str, output: Optional[str]) -> No
     from security_use.dependency_scanner import DependencyScanner
     from security_use.iac_scanner import IaCScanner
 
-    console.print(f"[blue]Scanning {path} for all security issues...[/blue]")
+    is_machine_format = format in ("json", "sarif")
+
+    if not is_machine_format:
+        console.print(f"[blue]Scanning {path} for all security issues...[/blue]")
 
     # Combined result
     result = ScanResult()
@@ -239,10 +252,12 @@ def scan_all(path: str, format: str, severity: str, output: Optional[str]) -> No
 
     # Exit with error code if issues found
     if result.total_issues > 0:
-        console.print(f"\n[red]Found {result.total_issues} security issue(s)[/red]")
+        if not is_machine_format:
+            console.print(f"\n[red]Found {result.total_issues} security issue(s)[/red]")
         sys.exit(1)
     else:
-        console.print("\n[green]No security issues found[/green]")
+        if not is_machine_format:
+            console.print("\n[green]No security issues found[/green]")
 
 
 @main.command()

@@ -43,40 +43,40 @@ class TerraformParser(IaCParser):
         # Extract resources
         for resource_block in parsed.get("resource", []):
             for resource_type, instances in resource_block.items():
-                for instance_block in instances:
-                    for resource_name, config in instance_block.items():
-                        line_number = self._find_resource_line(
-                            content, resource_type, resource_name
-                        )
+                # instances is a dict: {resource_name: config, ...}
+                for resource_name, config in instances.items():
+                    line_number = self._find_resource_line(
+                        content, resource_type, resource_name
+                    )
 
-                        resource = IaCResource(
-                            resource_type=resource_type,
-                            name=resource_name,
-                            config=config if isinstance(config, dict) else {},
-                            file_path=file_path,
-                            line_number=line_number,
-                            provider=self._get_provider(resource_type),
-                        )
-                        result.resources.append(resource)
+                    resource = IaCResource(
+                        resource_type=resource_type,
+                        name=resource_name,
+                        config=config if isinstance(config, dict) else {},
+                        file_path=file_path,
+                        line_number=line_number,
+                        provider=self._get_provider(resource_type),
+                    )
+                    result.resources.append(resource)
 
         # Extract data sources
         for data_block in parsed.get("data", []):
             for data_type, instances in data_block.items():
-                for instance_block in instances:
-                    for data_name, config in instance_block.items():
-                        line_number = self._find_data_line(
-                            content, data_type, data_name
-                        )
+                # instances is a dict: {data_name: config, ...}
+                for data_name, config in instances.items():
+                    line_number = self._find_data_line(
+                        content, data_type, data_name
+                    )
 
-                        resource = IaCResource(
-                            resource_type=f"data.{data_type}",
-                            name=data_name,
-                            config=config if isinstance(config, dict) else {},
-                            file_path=file_path,
-                            line_number=line_number,
-                            provider=self._get_provider(data_type),
-                        )
-                        result.resources.append(resource)
+                    resource = IaCResource(
+                        resource_type=f"data.{data_type}",
+                        name=data_name,
+                        config=config if isinstance(config, dict) else {},
+                        file_path=file_path,
+                        line_number=line_number,
+                        provider=self._get_provider(data_type),
+                    )
+                    result.resources.append(resource)
 
         # Extract variables
         for var_block in parsed.get("variable", []):

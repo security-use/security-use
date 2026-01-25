@@ -139,8 +139,12 @@ class TestFix:
             main,
             ["fix", str(temp_requirements.parent), "--dry-run"],
         )
-        # Should complete without error
-        assert "Dry run" in result.output or "No vulnerabilities" in result.output
+        # Should complete without error - may find vulns with or without fixes
+        assert (
+            "Dry run" in result.output
+            or "No vulnerabilities" in result.output
+            or "No automatic fixes" in result.output
+        )
 
     def test_fix_no_vulnerabilities(self, runner, tmp_path):
         result = runner.invoke(main, ["fix", str(tmp_path)])
@@ -170,7 +174,7 @@ class TestHelp:
     def test_main_help(self, runner):
         result = runner.invoke(main, ["--help"])
         assert result.exit_code == 0
-        assert "SecureScan" in result.output
+        assert "security-use" in result.output
 
     def test_scan_help(self, runner):
         result = runner.invoke(main, ["scan", "--help"])
