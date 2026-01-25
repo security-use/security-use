@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 # OAuth configuration
 OAUTH_CONFIG = {
     "client_id": "security-use-cli",
-    "auth_url": "https://security-use.dev/oauth/device/code",
-    "token_url": "https://security-use.dev/oauth/token",
-    "api_url": "https://api.security-use.dev",
+    "auth_url": "https://lhirdknhtzkqynfavdao.supabase.co/functions/v1/oauth-device-code",
+    "token_url": "https://lhirdknhtzkqynfavdao.supabase.co/functions/v1/oauth-token",
+    "api_url": "https://lhirdknhtzkqynfavdao.supabase.co/functions/v1",
     "scopes": ["read", "write", "scan:upload"],
 }
 

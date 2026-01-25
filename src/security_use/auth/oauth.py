@@ -63,20 +63,31 @@ class OAuthFlow:
             with httpx.Client(timeout=30.0) as client:
                 response = client.post(
                     self.auth_url,
-                    data={
+                    json={
                         "client_id": self.client_id,
                         "scope": " ".join(self.scopes),
                     },
                     headers={"Accept": "application/json"},
                 )
 
+                if response.status_code == 404:
+                    raise OAuthError(
+                        "OAuth server not available. The dashboard at security-use.dev "
+                        "may not be configured yet."
+                    )
+
                 if response.status_code != 200:
                     raise OAuthError(f"Failed to request device code: {response.text}")
 
-                return DeviceCode.from_dict(response.json())
+                try:
+                    return DeviceCode.from_dict(response.json())
+                except (ValueError, KeyError) as e:
+                    raise OAuthError(
+                        f"Invalid response from OAuth server: {e}"
+                    )
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}")
+            raise OAuthError(f"Network error connecting to {self.auth_url}: {e}")
 
     def poll_for_token(
         self,
@@ -105,7 +116,7 @@ class OAuthFlow:
                 try:
                     response = client.post(
                         self.token_url,
-                        data={
+                        json={
                             "client_id": self.client_id,
                             "device_code": device_code.device_code,
                             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
@@ -177,7 +188,7 @@ class OAuthFlow:
         try:
             with httpx.Client(timeout=30.0) as client:
                 response = client.get(
-                    f"{self.api_url}/v1/user/me",
+                    f"{self.api_url}/user-me",
                     headers={
                         "Authorization": f"{token.token_type} {token.access_token}",
                         "Accept": "application/json",
@@ -218,7 +229,7 @@ class OAuthFlow:
             with httpx.Client(timeout=30.0) as client:
                 response = client.post(
                     self.token_url,
-                    data={
+                    json={
                         "client_id": self.client_id,
                         "refresh_token": refresh_token,
                         "grant_type": "refresh_token",
