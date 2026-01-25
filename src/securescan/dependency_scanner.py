@@ -197,14 +197,3 @@ class DependencyScanner:
                 return parser_class()
 
         return None
-
-
-# Type alias for OSVClient to avoid circular import
-class OSVClient:
-    """Type stub for OSVClient - actual implementation in osv_client.py."""
-
-    def query_batch(
-        self, packages: list[tuple[str, str]]
-    ) -> dict[tuple[str, str], list[Vulnerability]]:
-        """Query batch of packages for vulnerabilities."""
-        ...
