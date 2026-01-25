@@ -31,7 +31,7 @@
 ```bash
 $ security-use scan all ./my-project
 
- SecurityUse v0.2.2
+ SecurityUse v0.2.5
 
  Scanning dependencies...
  ✓ Found 3 vulnerabilities in 47 packages
@@ -42,6 +42,8 @@ $ security-use scan all ./my-project
  ┌─────────────────────────────────────────────────────────────────┐
  │ CRITICAL  1   │   HIGH  2   │   MEDIUM  2   │   LOW  0         │
  └─────────────────────────────────────────────────────────────────┘
+
+ Results synced to dashboard (5 finding(s))
 ```
 
 ## Features
@@ -123,17 +125,27 @@ security-use fix ./my-project
 Sync your scan results to the [SecurityUse Dashboard](https://security-use.dev) for centralized monitoring, trend analysis, and team collaboration.
 
 ```bash
-# Authenticate with the dashboard
+# Authenticate once
 security-use auth login
 
-# Scan and upload results
-security-use sync ./my-project
+# All scans now auto-sync to dashboard!
+security-use scan all ./my-project
+# → Results synced to dashboard (X finding(s))
+```
 
-# Check authentication status
-security-use auth status
+**Features:**
+- **Automatic sync**: Once logged in, all scan results are automatically uploaded
+- **Multi-repo support**: Each repository is tracked separately with git metadata
+- **No extra commands**: Just run your normal scans - syncing happens automatically
 
-# Logout
-security-use auth logout
+```bash
+# Auth commands
+security-use auth login     # Authenticate with dashboard
+security-use auth status    # Check authentication status
+security-use auth logout    # Clear credentials
+
+# Manual sync (if needed)
+security-use sync ./my-project --project "My App"
 ```
 
 ## Installation
@@ -182,14 +194,10 @@ security-use fix ./my-project --dry-run      # Preview changes
 security-use fix ./my-project --deps-only    # Only fix dependencies
 security-use fix ./my-project --iac-only     # Only fix IaC issues
 
-# Dashboard authentication
+# Dashboard integration (results auto-sync when logged in)
 security-use auth login                       # Authenticate with dashboard
 security-use auth status                      # Check auth status
 security-use auth logout                      # Clear credentials
-
-# Sync results to dashboard
-security-use sync ./my-project               # Scan and upload to dashboard
-security-use sync ./my-project --project "My App"  # With project name
 ```
 
 ### Python API
