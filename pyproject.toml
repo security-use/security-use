@@ -55,7 +55,7 @@ Repository = "https://github.com/security-use/security-use"
 Issues = "https://github.com/security-use/security-use/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/securescan"]
+packages = ["src/securescan", "src/security_use"]
 
 [tool.ruff]
 line-length = 100
