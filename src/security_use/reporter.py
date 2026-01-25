@@ -76,7 +76,14 @@ class TableReporter(ReportGenerator):
             self._render_iac_findings(result.iac_findings)
 
         if result.errors:
-            self._render_errors(result.errors)
+            # Separate parse/unsupported file errors from real errors
+            unsupported = [e for e in result.errors if "Failed to parse" in e or "not a valid" in e]
+            real_errors = [e for e in result.errors if e not in unsupported]
+
+            if unsupported:
+                self._render_unsupported(unsupported)
+            if real_errors:
+                self._render_errors(real_errors)
 
         return self.console.export_text()
 
@@ -167,6 +174,27 @@ class TableReporter(ReportGenerator):
             table.add_row(*row)
 
         self.console.print(table)
+
+    def _render_unsupported(self, files: list[str]) -> None:
+        """Render unsupported files panel."""
+        text = Text()
+        for item in files:
+            # Extract just the filename from the error message
+            if "Failed to parse" in item:
+                filename = item.replace("Failed to parse ", "").replace(": Invalid YAML/JSON", "")
+                text.append(f"• {filename}\n", style="dim")
+            elif "not a valid" in item:
+                filename = item.split(" is not")[0]
+                text.append(f"• {filename}\n", style="dim")
+            else:
+                text.append(f"• {item}\n", style="dim")
+
+        panel = Panel(
+            text,
+            title="Unsupported Files (skipped)",
+            border_style="dim",
+        )
+        self.console.print(panel)
 
     def _render_errors(self, errors: list[str]) -> None:
         """Render errors panel."""
