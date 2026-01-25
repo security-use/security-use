@@ -425,5 +425,265 @@ def version() -> None:
     click.echo(f"security-use version {__version__}")
 
 
+# =============================================================================
+# Authentication Commands
+# =============================================================================
+
+
+@main.group()
+def auth() -> None:
+    """Authenticate with SecurityUse dashboard."""
+    pass
+
+
+@auth.command("login")
+@click.option(
+    "--no-browser",
+    is_flag=True,
+    help="Don't automatically open the browser",
+)
+def auth_login(no_browser: bool) -> None:
+    """Log in to SecurityUse dashboard.
+
+    This will open your browser to authenticate with security-use.dev.
+    After authentication, scan results can be synced to your dashboard.
+    """
+    from security_use.auth import OAuthFlow, OAuthError, AuthConfig
+
+    config = AuthConfig()
+
+    if config.is_authenticated:
+        console.print(f"[yellow]Already logged in as {config.user.email if config.user else 'unknown'}[/yellow]")
+        console.print("Run 'security-use auth logout' first to log in as a different user.")
+        return
+
+    oauth = OAuthFlow(config)
+
+    try:
+        # Request device code
+        console.print("[blue]Requesting authorization...[/blue]")
+        device_code = oauth.request_device_code()
+
+        # Show user code
+        console.print(f"\n[bold]Your authorization code:[/bold] [cyan]{device_code.user_code}[/cyan]")
+        console.print(f"\nOpen this URL to authenticate:")
+        console.print(f"[link={device_code.verification_uri}]{device_code.verification_uri}[/link]")
+
+        if not no_browser:
+            import webbrowser
+            verification_url = (
+                device_code.verification_uri_complete
+                or f"{device_code.verification_uri}?user_code={device_code.user_code}"
+            )
+            console.print("\n[dim]Opening browser...[/dim]")
+            webbrowser.open(verification_url)
+
+        console.print("\n[dim]Waiting for authorization (press Ctrl+C to cancel)...[/dim]")
+
+        def on_status(msg: str) -> None:
+            console.print(f"[dim]{msg}[/dim]", end="\r")
+
+        # Poll for token
+        token = oauth.poll_for_token(device_code, on_status)
+
+        # Get user info
+        try:
+            user = oauth.get_user_info(token)
+            config.save_token(token, user)
+            console.print(f"\n[green]Successfully logged in as {user.email}[/green]")
+            if user.org_name:
+                console.print(f"[dim]Organization: {user.org_name}[/dim]")
+        except OAuthError:
+            config.save_token(token)
+            console.print("\n[green]Successfully logged in[/green]")
+
+        console.print("\nYou can now sync scan results to your dashboard:")
+        console.print("  security-use scan all ./project --sync")
+
+    except OAuthError as e:
+        console.print(f"\n[red]Authentication failed: {e}[/red]")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Authentication cancelled[/yellow]")
+        sys.exit(1)
+
+
+@auth.command("logout")
+def auth_logout() -> None:
+    """Log out from SecurityUse dashboard.
+
+    This will clear your stored credentials.
+    """
+    from security_use.auth import AuthConfig
+
+    config = AuthConfig()
+
+    if not config.is_authenticated:
+        console.print("[yellow]Not currently logged in[/yellow]")
+        return
+
+    user_email = config.user.email if config.user else "unknown"
+    config.clear()
+    console.print(f"[green]Successfully logged out from {user_email}[/green]")
+
+
+@auth.command("status")
+def auth_status() -> None:
+    """Check authentication status.
+
+    Shows whether you're logged in and account details.
+    """
+    from security_use.auth import AuthConfig, get_config_dir
+
+    config = AuthConfig()
+
+    if config.is_authenticated:
+        console.print("[green]Logged in[/green]")
+        if config.user:
+            console.print(f"  Email: {config.user.email}")
+            if config.user.name:
+                console.print(f"  Name: {config.user.name}")
+            if config.user.org_name:
+                console.print(f"  Organization: {config.user.org_name}")
+        if config.token and config.token.expires_at:
+            console.print(f"  Token expires: {config.token.expires_at}")
+    else:
+        console.print("[yellow]Not logged in[/yellow]")
+        console.print("\nRun 'security-use auth login' to authenticate.")
+
+    console.print(f"\n[dim]Config directory: {get_config_dir()}[/dim]")
+
+
+@auth.command("token")
+def auth_token() -> None:
+    """Print the current access token.
+
+    Useful for integrations that need the token directly.
+    """
+    from security_use.auth import AuthConfig
+
+    config = AuthConfig()
+
+    if not config.is_authenticated:
+        console.print("[red]Not logged in[/red]", err=True)
+        sys.exit(1)
+
+    token = config.get_access_token()
+    if token:
+        click.echo(token)
+    else:
+        console.print("[red]No valid token available[/red]", err=True)
+        sys.exit(1)
+
+
+# =============================================================================
+# Sync Command
+# =============================================================================
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option(
+    "--project", "-p",
+    help="Project name for the dashboard",
+)
+@click.option(
+    "--severity", "-s",
+    type=click.Choice(["critical", "high", "medium", "low"]),
+    default="low",
+    help="Minimum severity to report",
+)
+def sync(path: str, project: Optional[str], severity: str) -> None:
+    """Scan and sync results to SecurityUse dashboard.
+
+    This command scans the project and uploads the results to your
+    dashboard at security-use.dev.
+
+    Requires authentication. Run 'security-use auth login' first.
+    """
+    from security_use.dependency_scanner import DependencyScanner
+    from security_use.iac_scanner import IaCScanner
+    from security_use.auth import AuthConfig, DashboardClient, OAuthError
+
+    config = AuthConfig()
+
+    if not config.is_authenticated:
+        console.print("[red]Not logged in. Run 'security-use auth login' first.[/red]")
+        sys.exit(1)
+
+    console.print(f"[blue]Scanning {path}...[/blue]")
+
+    # Combined result
+    result = ScanResult()
+
+    # Scan dependencies
+    dep_scanner = DependencyScanner()
+    dep_result = dep_scanner.scan_path(Path(path))
+    result.vulnerabilities = dep_result.vulnerabilities
+    result.scanned_files.extend(dep_result.scanned_files)
+    result.errors.extend(dep_result.errors)
+
+    # Scan IaC
+    iac_scanner = IaCScanner()
+    iac_result = iac_scanner.scan_path(Path(path))
+    result.iac_findings = iac_result.iac_findings
+    result.scanned_files.extend(iac_result.scanned_files)
+    result.errors.extend(iac_result.errors)
+
+    # Filter by severity
+    threshold = _get_severity_threshold(severity)
+    result = _filter_by_severity(result, threshold)
+
+    # Try to get git info
+    branch = None
+    commit = None
+    try:
+        import subprocess
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, cwd=path
+        ).stdout.strip() or None
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, cwd=path
+        ).stdout.strip() or None
+    except Exception:
+        pass
+
+    # Determine project name
+    project_name = project or Path(path).resolve().name
+
+    console.print(f"\n[bold]Scan Summary:[/bold]")
+    console.print(f"  Vulnerabilities: {len(result.vulnerabilities)}")
+    console.print(f"  IaC Findings: {len(result.iac_findings)}")
+    console.print(f"  Files Scanned: {len(result.scanned_files)}")
+
+    # Upload to dashboard
+    console.print(f"\n[blue]Uploading to dashboard...[/blue]")
+
+    try:
+        client = DashboardClient(config)
+        response = client.upload_scan(
+            result=result,
+            project_name=project_name,
+            project_path=str(Path(path).resolve()),
+            branch=branch,
+            commit=commit,
+        )
+
+        console.print(f"[green]Scan uploaded successfully![/green]")
+
+        if "scan_id" in response:
+            console.print(f"  Scan ID: {response['scan_id']}")
+        if "url" in response:
+            console.print(f"\n  View results: [link={response['url']}]{response['url']}[/link]")
+        elif "dashboard_url" in response:
+            console.print(f"\n  View results: [link={response['dashboard_url']}]{response['dashboard_url']}[/link]")
+
+    except OAuthError as e:
+        console.print(f"[red]Failed to upload: {e}[/red]")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()
