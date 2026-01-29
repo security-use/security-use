@@ -143,7 +143,7 @@ class SBOMGenerator:
                     {
                         "vendor": "security-use",
                         "name": "security-use",
-                        "version": "0.2.6",
+                        "version": "0.2.7",
                     }
                 ],
                 "component": {
@@ -183,7 +183,7 @@ class SBOMGenerator:
             "      <tool>",
             "        <vendor>security-use</vendor>",
             "        <name>security-use</name>",
-            "        <version>0.2.6</version>",
+            "        <version>0.2.7</version>",
             "      </tool>",
             "    </tools>",
             "    <component type=\"application\">",
@@ -270,7 +270,7 @@ class SBOMGenerator:
             "documentNamespace": doc_namespace,
             "creationInfo": {
                 "created": datetime.utcnow().isoformat() + "Z",
-                "creators": ["Tool: security-use-0.2.6"],
+                "creators": ["Tool: security-use-0.2.7"],
             },
             "packages": packages,
             "relationships": relationships,
@@ -293,7 +293,7 @@ class SBOMGenerator:
             "SPDXID: SPDXRef-DOCUMENT",
             f"DocumentName: {path.name} SBOM",
             f"DocumentNamespace: {doc_namespace}",
-            "Creator: Tool: security-use-0.2.6",
+            "Creator: Tool: security-use-0.2.7",
             f"Created: {timestamp}",
             "",
             "##### Root Package",

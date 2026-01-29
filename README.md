@@ -31,7 +31,7 @@
 ```bash
 $ security-use scan all ./my-project
 
- SecurityUse v0.2.6
+ SecurityUse v0.2.7
 
  Scanning dependencies...
  ✓ Found 3 vulnerabilities in 47 packages
