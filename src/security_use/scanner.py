@@ -42,7 +42,7 @@ def scan_iac(
     Args:
         path: Path to scan (file or directory). Defaults to current directory.
         file_content: Direct content to scan (alternative to path).
-        file_type: Type of IaC file when using file_content.
+        file_type: Type of IaC file when using file_content (e.g., "terraform", "cloudformation").
 
     Returns:
         ScanResult containing any IaC findings.
@@ -52,7 +52,20 @@ def scan_iac(
     scanner = IaCScanner()
 
     if file_content is not None:
-        return scanner.scan_content(file_content, file_type or "terraform")
+        # Map file_type to a synthetic file path with correct extension
+        # so the parser can be selected correctly
+        file_type_to_extension = {
+            "terraform": "inline.tf",
+            "tf": "inline.tf",
+            "cloudformation": "inline.yaml",
+            "cfn": "inline.yaml",
+            "yaml": "inline.yaml",
+            "yml": "inline.yml",
+            "json": "inline.json",
+        }
+        file_type_lower = (file_type or "terraform").lower()
+        synthetic_path = file_type_to_extension.get(file_type_lower, f"inline.{file_type_lower}")
+        return scanner.scan_content(file_content, synthetic_path)
 
     scan_path = Path(path) if path else Path.cwd()
     return scanner.scan_path(scan_path)
