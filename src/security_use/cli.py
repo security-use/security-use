@@ -245,12 +245,18 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
     type=click.Path(),
     help="Write output to file",
 )
-def scan_iac(path: str, format: str, severity: str, output: Optional[str]) -> None:
+@click.option(
+    "--compliance", "-c",
+    type=click.Choice(["soc2", "hipaa", "pci-dss", "nist-800-53", "cis-aws", "cis-azure", "cis-gcp", "cis-kubernetes", "iso-27001"]),
+    help="Filter by compliance framework",
+)
+def scan_iac(path: str, format: str, severity: str, output: Optional[str], compliance: Optional[str]) -> None:
     """Scan Infrastructure as Code for security misconfigurations.
 
     PATH is the file or directory to scan (default: current directory).
     """
     from security_use.iac_scanner import IaCScanner
+    from security_use.compliance import ComplianceMapper, ComplianceFramework
 
     is_machine_format = format in ("json", "sarif")
 
@@ -263,6 +269,30 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str]) -> No
     # Filter by severity
     threshold = _get_severity_threshold(severity)
     result = _filter_by_severity(result, threshold)
+
+    # Filter by compliance framework if specified
+    if compliance:
+        framework_map = {
+            "soc2": ComplianceFramework.SOC2,
+            "hipaa": ComplianceFramework.HIPAA,
+            "pci-dss": ComplianceFramework.PCI_DSS,
+            "nist-800-53": ComplianceFramework.NIST_800_53,
+            "cis-aws": ComplianceFramework.CIS_AWS,
+            "cis-azure": ComplianceFramework.CIS_AZURE,
+            "cis-gcp": ComplianceFramework.CIS_GCP,
+            "cis-kubernetes": ComplianceFramework.CIS_K8S,
+            "iso-27001": ComplianceFramework.ISO_27001,
+        }
+        mapper = ComplianceMapper()
+        framework = framework_map[compliance]
+
+        # Filter findings to those with compliance mappings
+        compliance_findings = mapper.get_findings_by_framework(result.iac_findings, framework)
+        compliance_rule_ids = {f.rule_id for f in compliance_findings}
+        result.iac_findings = [f for f in result.iac_findings if f.rule_id in compliance_rule_ids]
+
+        if not is_machine_format:
+            console.print(f"[dim]Filtered by {compliance.upper()} compliance[/dim]")
 
     # Output results
     _output_result(result, format, output)
