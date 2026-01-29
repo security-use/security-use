@@ -14,6 +14,14 @@ from security_use.parsers import (
     PoetryLockParser,
     PyProjectParser,
     RequirementsParser,
+    GradleParser,
+    YarnLockParser,
+    PnpmLockParser,
+    CsprojParser,
+    PackagesConfigParser,
+    CondaEnvironmentParser,
+    ComposerParser,
+    ComposerLockParser,
 )
 from security_use.parsers.pipfile import PipfileLockParser
 
@@ -30,6 +38,14 @@ class DependencyScanner:
         MavenParser,
         NpmParser,
         NpmLockParser,
+        GradleParser,
+        YarnLockParser,
+        PnpmLockParser,
+        CsprojParser,
+        PackagesConfigParser,
+        CondaEnvironmentParser,
+        ComposerParser,
+        ComposerLockParser,
     ]
 
     DEPENDENCY_FILES = [
@@ -45,6 +61,15 @@ class DependencyScanner:
         "pom.xml",
         "package.json",
         "package-lock.json",
+        "build.gradle",
+        "build.gradle.kts",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "packages.config",
+        "environment.yml",
+        "environment.yaml",
+        "composer.json",
+        "composer.lock",
     ]
 
     def __init__(self) -> None:
