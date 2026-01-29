@@ -670,6 +670,104 @@ def auth_token() -> None:
 
 
 # =============================================================================
+# SBOM Commands
+# =============================================================================
+
+
+@main.group()
+def sbom() -> None:
+    """Generate Software Bill of Materials (SBOM)."""
+    pass
+
+
+@sbom.command("generate")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option(
+    "--format", "-f",
+    type=click.Choice(["cyclonedx-json", "cyclonedx-xml", "spdx-json", "spdx-tv"]),
+    default="cyclonedx-json",
+    help="Output format",
+)
+@click.option(
+    "--output", "-o",
+    type=click.Path(),
+    help="Write output to file",
+)
+@click.option(
+    "--include-vulns",
+    is_flag=True,
+    help="Include vulnerability information (VEX)",
+)
+def sbom_generate(path: str, format: str, output: Optional[str], include_vulns: bool) -> None:
+    """Generate an SBOM for the project.
+
+    Scans dependency files and generates a Software Bill of Materials
+    in CycloneDX or SPDX format.
+
+    PATH is the directory to scan (default: current directory).
+    """
+    from security_use.sbom import SBOMGenerator, SBOMFormat
+
+    format_map = {
+        "cyclonedx-json": SBOMFormat.CYCLONEDX_JSON,
+        "cyclonedx-xml": SBOMFormat.CYCLONEDX_XML,
+        "spdx-json": SBOMFormat.SPDX_JSON,
+        "spdx-tv": SBOMFormat.SPDX_TV,
+    }
+
+    console.print(f"[blue]Generating SBOM for {path}...[/blue]")
+
+    generator = SBOMGenerator()
+    result = generator.generate(
+        Path(path),
+        format=format_map[format],
+        include_vulnerabilities=include_vulns,
+    )
+
+    if output:
+        Path(output).write_text(result.content, encoding="utf-8")
+        console.print(f"[green]SBOM written to {output}[/green]")
+        console.print(f"  Format: {format}")
+        console.print(f"  Components: {result.component_count}")
+    else:
+        click.echo(result.content)
+
+
+@sbom.command("enrich")
+@click.argument("sbom_file", type=click.Path(exists=True))
+@click.option(
+    "--output", "-o",
+    type=click.Path(),
+    help="Write enriched SBOM to file",
+)
+def sbom_enrich(sbom_file: str, output: Optional[str]) -> None:
+    """Enrich an existing SBOM with vulnerability data.
+
+    Adds VEX (Vulnerability Exploitability eXchange) information
+    to an existing SBOM file.
+
+    SBOM_FILE is the path to the existing SBOM.
+    """
+    import json
+
+    console.print(f"[blue]Enriching SBOM: {sbom_file}...[/blue]")
+
+    # Read existing SBOM
+    content = Path(sbom_file).read_text(encoding="utf-8")
+
+    try:
+        sbom_data = json.loads(content)
+    except json.JSONDecodeError:
+        console.print("[red]Error: Only JSON SBOM files can be enriched[/red]")
+        sys.exit(1)
+
+    # TODO: Add vulnerability enrichment logic
+    # This would query OSV for each component and add VEX data
+
+    console.print("[yellow]SBOM enrichment not yet implemented[/yellow]")
+
+
+# =============================================================================
 # Sync Command
 # =============================================================================
 
