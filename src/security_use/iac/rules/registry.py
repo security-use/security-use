@@ -94,6 +94,7 @@ def get_registry() -> RuleRegistry:
 
 def _register_default_rules(registry: RuleRegistry) -> None:
     """Register all default rules."""
+    # AWS Rules
     from security_use.iac.rules.aws import (
         S3BucketEncryptionRule,
         S3BucketPublicAccessRule,
@@ -113,3 +114,58 @@ def _register_default_rules(registry: RuleRegistry) -> None:
     registry.register_class(EBSEncryptionRule)
     registry.register_class(CloudTrailEnabledRule)
     registry.register_class(VPCFlowLogsRule)
+
+    # Azure Rules
+    from security_use.iac.rules.azure import (
+        AzureStoragePublicAccessRule,
+        AzureStorageEncryptionRule,
+        AzureNSGOpenIngressRule,
+        AzureSQLEncryptionRule,
+        AzureKeyVaultSoftDeleteRule,
+        AzureActivityLogRetentionRule,
+    )
+
+    registry.register_class(AzureStoragePublicAccessRule)
+    registry.register_class(AzureStorageEncryptionRule)
+    registry.register_class(AzureNSGOpenIngressRule)
+    registry.register_class(AzureSQLEncryptionRule)
+    registry.register_class(AzureKeyVaultSoftDeleteRule)
+    registry.register_class(AzureActivityLogRetentionRule)
+
+    # GCP Rules
+    from security_use.iac.rules.gcp import (
+        GCSBucketPublicAccessRule,
+        GCSBucketEncryptionRule,
+        GCPFirewallOpenIngressRule,
+        GCPCloudSQLEncryptionRule,
+        GCPKMSKeyRotationRule,
+        GCPServiceAccountKeyRule,
+        GCPAuditLoggingRule,
+    )
+
+    registry.register_class(GCSBucketPublicAccessRule)
+    registry.register_class(GCSBucketEncryptionRule)
+    registry.register_class(GCPFirewallOpenIngressRule)
+    registry.register_class(GCPCloudSQLEncryptionRule)
+    registry.register_class(GCPKMSKeyRotationRule)
+    registry.register_class(GCPServiceAccountKeyRule)
+    registry.register_class(GCPAuditLoggingRule)
+
+    # Kubernetes Rules
+    from security_use.iac.rules.kubernetes import (
+        K8sRunAsRootRule,
+        K8sPrivilegedContainerRule,
+        K8sResourceLimitsRule,
+        K8sHostNetworkRule,
+        K8sSecretsEnvVarsRule,
+        K8sReadOnlyRootFilesystemRule,
+        K8sNetworkPolicyRule,
+    )
+
+    registry.register_class(K8sRunAsRootRule)
+    registry.register_class(K8sPrivilegedContainerRule)
+    registry.register_class(K8sResourceLimitsRule)
+    registry.register_class(K8sHostNetworkRule)
+    registry.register_class(K8sSecretsEnvVarsRule)
+    registry.register_class(K8sReadOnlyRootFilesystemRule)
+    registry.register_class(K8sNetworkPolicyRule)
