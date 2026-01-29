@@ -1,0 +1,72 @@
+# SecurityUse GitLab CI Template
+# Include this in your .gitlab-ci.yml:
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/security-use/security-use/main/ci-templates/gitlab-ci.yml'
+
+.security-use:
+  image: python:3.11-slim
+  before_script:
+    - pip install security-use
+
+security-scan:
+  extends: .security-use
+  stage: test
+  script:
+    - security-use scan all . --format json > security-report.json
+    - security-use scan all . --format table
+  artifacts:
+    reports:
+      sast: security-report.json
+    paths:
+      - security-report.json
+    when: always
+  allow_failure: false
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+dependency-scan:
+  extends: .security-use
+  stage: test
+  script:
+    - security-use scan deps . --format json > deps-report.json
+    - security-use scan deps . --format table
+  artifacts:
+    reports:
+      dependency_scanning: deps-report.json
+    paths:
+      - deps-report.json
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+iac-scan:
+  extends: .security-use
+  stage: test
+  script:
+    - security-use scan iac . --format json > iac-report.json
+    - security-use scan iac . --format table
+  artifacts:
+    paths:
+      - iac-report.json
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - changes:
+        - "**/*.tf"
+        - "**/*.yaml"
+        - "**/*.yml"
+
+sbom-generation:
+  extends: .security-use
+  stage: build
+  script:
+    - security-use sbom generate . --format cyclonedx-json --output sbom.json
+  artifacts:
+    paths:
+      - sbom.json
+    when: always
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

@@ -549,6 +549,109 @@ def version() -> None:
 
 
 # =============================================================================
+# CI/CD Command
+# =============================================================================
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option(
+    "--fail-on", "-f",
+    type=click.Choice(["critical", "high", "medium", "low"]),
+    default="high",
+    help="Minimum severity to fail on",
+)
+@click.option(
+    "--output", "-o",
+    type=click.Choice(["sarif", "json", "table", "minimal"]),
+    default="minimal",
+    help="Output format",
+)
+@click.option(
+    "--sarif-file",
+    type=click.Path(),
+    help="Write SARIF output to file",
+)
+@click.option(
+    "--deps-only",
+    is_flag=True,
+    help="Only scan dependencies",
+)
+@click.option(
+    "--iac-only",
+    is_flag=True,
+    help="Only scan IaC files",
+)
+def ci(path: str, fail_on: str, output: str, sarif_file: Optional[str], deps_only: bool, iac_only: bool) -> None:
+    """Run security scan optimized for CI/CD pipelines.
+
+    Designed for non-interactive CI environments with minimal output
+    and clear exit codes:
+      - Exit 0: No issues found at or above severity threshold
+      - Exit 1: Issues found at or above severity threshold
+      - Exit 2: Scan error
+
+    PATH is the directory to scan (default: current directory).
+    """
+    from security_use.dependency_scanner import DependencyScanner
+    from security_use.iac_scanner import IaCScanner
+
+    try:
+        result = ScanResult()
+
+        # Scan dependencies
+        if not iac_only:
+            dep_scanner = DependencyScanner()
+            dep_result = dep_scanner.scan_path(Path(path))
+            result.vulnerabilities = dep_result.vulnerabilities
+            result.scanned_files.extend(dep_result.scanned_files)
+            result.errors.extend(dep_result.errors)
+
+        # Scan IaC
+        if not deps_only:
+            iac_scanner = IaCScanner()
+            iac_result = iac_scanner.scan_path(Path(path))
+            result.iac_findings = iac_result.iac_findings
+            result.scanned_files.extend(iac_result.scanned_files)
+            result.errors.extend(iac_result.errors)
+
+        # Filter by severity
+        threshold = _get_severity_threshold(fail_on)
+        filtered_result = _filter_by_severity(result, threshold)
+
+        # Write SARIF if requested
+        if sarif_file:
+            reporter = create_reporter("sarif")
+            sarif_content = reporter.generate(result)  # Full results for SARIF
+            Path(sarif_file).write_text(sarif_content, encoding="utf-8")
+
+        # Output based on format
+        if output == "minimal":
+            # Minimal output for CI logs
+            total = filtered_result.total_issues
+            if total > 0:
+                click.echo(f"FAILED: {total} issue(s) at {fail_on.upper()} or above")
+                click.echo(f"  Vulnerabilities: {len(filtered_result.vulnerabilities)}")
+                click.echo(f"  IaC Findings: {len(filtered_result.iac_findings)}")
+            else:
+                click.echo(f"PASSED: No issues at {fail_on.upper()} or above")
+        elif output == "table":
+            _output_result(result, "table", None)
+        else:
+            reporter = create_reporter(output)
+            click.echo(reporter.generate(result))
+
+        # Exit with appropriate code
+        if filtered_result.total_issues > 0:
+            sys.exit(1)
+        sys.exit(0)
+
+    except Exception as e:
+        click.echo(f"ERROR: {e}", err=True)
+        sys.exit(2)
+
+
+# =============================================================================
 # Authentication Commands
 # =============================================================================
 

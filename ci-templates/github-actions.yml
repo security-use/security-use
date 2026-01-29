@@ -1,0 +1,64 @@
+# SecurityUse GitHub Actions Workflow
+# Add this to .github/workflows/security.yml in your repository
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Run weekly on Monday at midnight
+    - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SecurityUse
+        run: pip install security-use
+
+      - name: Run Dependency Scan
+        run: security-use scan deps . --format sarif > deps-results.sarif
+        continue-on-error: true
+
+      - name: Run IaC Scan
+        run: security-use scan iac . --format sarif > iac-results.sarif
+        continue-on-error: true
+
+      - name: Upload Dependency SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: deps-results.sarif
+          category: security-use-deps
+
+      - name: Upload IaC SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: iac-results.sarif
+          category: security-use-iac
+
+      - name: Print Summary
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          security-use scan all . --format table >> $GITHUB_STEP_SUMMARY 2>&1 || true
+
+      - name: Fail on High Severity
+        run: security-use scan all . --severity high
