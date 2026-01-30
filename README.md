@@ -31,7 +31,7 @@
 ```bash
 $ security-use scan all ./my-project
 
- SecurityUse v0.2.7
+ SecurityUse v0.2.8
 
  Scanning dependencies...
  ✓ Found 3 vulnerabilities in 47 packages
@@ -76,17 +76,33 @@ Find security misconfigurations before they reach production.
 
 ### Runtime Security Sensor
 
-Real-time attack detection middleware for FastAPI and Flask applications.
+Real-time attack detection middleware for FastAPI and Flask applications with dashboard integration.
 
 ```python
 from fastapi import FastAPI
 from security_use.sensor import SecurityMiddleware
 
 app = FastAPI()
+
+# Dashboard integration (recommended)
 app.add_middleware(
     SecurityMiddleware,
-    webhook_url="https://your-siem.com/alerts",
+    api_key="su_...",  # Or set SECURITY_USE_API_KEY env var
     block_on_detection=True,
+)
+
+# Auto-detect vulnerable endpoints from code analysis
+app.add_middleware(
+    SecurityMiddleware,
+    auto_detect_vulnerable=True,
+    project_path="./",
+)
+
+# Selective path monitoring
+app.add_middleware(
+    SecurityMiddleware,
+    watch_paths=["/api/users", "/api/search", "/admin/*"],
+    excluded_paths=["/health", "/metrics"],
 )
 ```
 
@@ -97,6 +113,12 @@ app.add_middleware(
 - Command Injection (`;cat /etc/passwd`, backticks, `$()`)
 - Rate limit violations
 - Suspicious user agents (sqlmap, nikto, etc.)
+
+**Features:**
+- Dashboard alerting with API key authentication
+- Auto-detection of vulnerable endpoints via code analysis
+- Selective path monitoring with wildcards
+- Blocks attacks and reports to dashboard in real-time
 
 ### Auto-Fix
 
@@ -223,7 +245,7 @@ for finding in result.iac_findings:
 
 ### Runtime Sensor
 
-**FastAPI (ASGI):**
+**FastAPI (ASGI) with Dashboard:**
 
 ```python
 from fastapi import FastAPI
@@ -231,12 +253,28 @@ from security_use.sensor import SecurityMiddleware
 
 app = FastAPI()
 
+# Recommended: Dashboard integration
 app.add_middleware(
     SecurityMiddleware,
-    webhook_url="https://your-siem.com/webhook",
-    block_on_detection=True,         # Return 403 on attacks
+    api_key="su_...",                # Or set SECURITY_USE_API_KEY env var
+    block_on_detection=True,         # Return 403 on attacks (default)
     excluded_paths=["/health", "/metrics"],
     rate_limit_threshold=100,        # Requests per minute per IP
+)
+
+# Or with auto-detection of vulnerable endpoints
+app.add_middleware(
+    SecurityMiddleware,
+    api_key="su_...",
+    auto_detect_vulnerable=True,     # Scan code for risky endpoints
+    project_path="./",
+)
+
+# Or monitor specific paths only
+app.add_middleware(
+    SecurityMiddleware,
+    api_key="su_...",
+    watch_paths=["/api/users", "/admin/*"],  # Only monitor these
 )
 
 @app.get("/api/users")
@@ -254,8 +292,8 @@ app = Flask(__name__)
 
 app.wsgi_app = FlaskSecurityMiddleware(
     app.wsgi_app,
-    webhook_url="https://your-siem.com/webhook",
-    block_on_detection=False,  # Log only, don't block
+    api_key="su_...",          # Dashboard integration
+    block_on_detection=True,
 )
 
 @app.route("/api/users")
@@ -263,34 +301,48 @@ def get_users():
     return {"users": []}
 ```
 
-**Webhook Alert Format:**
+**Programmatic Endpoint Analysis:**
+
+```python
+from security_use.sensor import VulnerableEndpointDetector
+
+# Analyze your codebase for vulnerable endpoints
+detector = VulnerableEndpointDetector()
+result = detector.analyze("./my-project")
+
+for endpoint in result.vulnerable_endpoints:
+    print(f"{endpoint.method} {endpoint.path} - risk: {endpoint.risk_score}")
+```
+
+**Dashboard Alert Format:**
 
 ```json
 {
-  "version": "1.0",
-  "event": {
-    "id": "evt_abc123def456",
-    "type": "security_alert",
-    "timestamp": "2024-01-25T12:00:00.000Z"
-  },
-  "alert": {
-    "type": "sql_injection",
+  "scan_type": "runtime",
+  "status": "completed",
+  "findings": [{
+    "finding_type": "attack",
+    "category": "runtime",
     "severity": "HIGH",
-    "confidence": 0.95,
-    "description": "SQL injection attempt detected"
-  },
-  "request": {
-    "method": "POST",
-    "path": "/api/users/search",
-    "source_ip": "192.168.1.100",
-    "headers": {}
-  },
-  "matched": {
-    "pattern": "' OR 1=1--",
-    "location": "body",
-    "field": "search_query"
-  },
-  "action_taken": "blocked"
+    "title": "Sql Injection attack detected",
+    "description": "UNION SELECT injection attempt",
+    "pattern": "(?i)union\\s+(all\\s+)?select",
+    "payload_preview": "1 UNION SELECT * FROM users--",
+    "recommendation": "Review and parameterize database queries.",
+    "file_path": "/api/users",
+    "metadata": {
+      "source_ip": "192.168.1.100",
+      "method": "GET",
+      "user_agent": "Mozilla/5.0...",
+      "action_taken": "blocked",
+      "confidence": 0.9,
+      "timestamp": "2024-01-25T12:00:00.000000"
+    }
+  }],
+  "metadata": {
+    "sensor_version": "0.2.8",
+    "alert_type": "runtime_attack"
+  }
 }
 ```
 
