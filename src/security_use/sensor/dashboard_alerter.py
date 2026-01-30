@@ -169,7 +169,7 @@ class DashboardAlerter:
                     response = await client.post(url, json=payload, headers=headers)
 
                     if response.status_code in (200, 201, 202):
-                        logger.info(f"Alert sent to dashboard: {event.attack_type}")
+                        logger.info(f"Alert sent to dashboard: {event.event_type.value}")
                         return True
                     elif response.status_code == 401:
                         logger.error("Invalid API key for dashboard alerting")
@@ -223,7 +223,7 @@ class DashboardAlerter:
                     response = client.post(url, json=payload, headers=headers)
 
                     if response.status_code in (200, 201, 202):
-                        logger.info(f"Alert sent to dashboard: {event.attack_type}")
+                        logger.info(f"Alert sent to dashboard: {event.event_type.value}")
                         return True
                     elif response.status_code == 401:
                         logger.error("Invalid API key for dashboard alerting")
