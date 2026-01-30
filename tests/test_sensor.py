@@ -3,6 +3,8 @@
 import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+import tempfile
+import os
 
 from security_use.sensor import (
     AttackDetector,
@@ -16,6 +18,11 @@ from security_use.sensor import (
     WebhookAlerter,
     AlertResponse,
     ActionTaken,
+    DashboardAlerter,
+    VulnerableEndpointDetector,
+    EndpointInfo,
+    AnalysisResult,
+    detect_vulnerable_endpoints,
 )
 
 
@@ -541,3 +548,424 @@ class TestIntegration:
             assert event.source_ip == "192.168.1.100"
             assert event.path == "/api/login"
             assert event.method == "POST"
+
+
+class TestSensorConfigWatchPaths:
+    """Tests for watch_paths and should_monitor_path functionality."""
+
+    def test_should_monitor_path_no_watch_paths(self):
+        """Test that all paths are monitored when watch_paths is None."""
+        config = create_config(
+            api_key="su_test_key",
+            watch_paths=None,
+        )
+
+        assert config.should_monitor_path("/api/users") is True
+        assert config.should_monitor_path("/api/admin") is True
+        assert config.should_monitor_path("/anything") is True
+
+    def test_should_monitor_path_exact_match(self):
+        """Test exact path matching in watch_paths."""
+        config = create_config(
+            api_key="su_test_key",
+            watch_paths=["/api/users", "/api/search"],
+        )
+
+        assert config.should_monitor_path("/api/users") is True
+        assert config.should_monitor_path("/api/search") is True
+        assert config.should_monitor_path("/api/products") is False
+
+    def test_should_monitor_path_prefix_match(self):
+        """Test prefix path matching in watch_paths."""
+        config = create_config(
+            api_key="su_test_key",
+            watch_paths=["/api/users"],
+        )
+
+        # Should match /api/users and any subpaths
+        assert config.should_monitor_path("/api/users") is True
+        assert config.should_monitor_path("/api/users/123") is True
+        assert config.should_monitor_path("/api/users/123/profile") is True
+        assert config.should_monitor_path("/api/products") is False
+
+    def test_should_monitor_path_wildcard(self):
+        """Test wildcard path matching in watch_paths."""
+        config = create_config(
+            api_key="su_test_key",
+            watch_paths=["/admin/*", "/api/search"],
+        )
+
+        assert config.should_monitor_path("/admin/users") is True
+        assert config.should_monitor_path("/admin/settings") is True
+        assert config.should_monitor_path("/api/search") is True
+        assert config.should_monitor_path("/api/users") is False
+
+    def test_should_monitor_path_excluded_overrides_watch(self):
+        """Test that excluded_paths takes precedence over watch_paths."""
+        config = create_config(
+            api_key="su_test_key",
+            watch_paths=["/api/*"],
+            excluded_paths=["/api/health"],
+        )
+
+        assert config.should_monitor_path("/api/users") is True
+        assert config.should_monitor_path("/api/health") is False  # Excluded
+
+    def test_alert_mode_dashboard(self):
+        """Test that alert_mode is set to dashboard when api_key is provided."""
+        config = create_config(api_key="su_test_key")
+        assert config.alert_mode == "dashboard"
+
+    def test_alert_mode_webhook(self):
+        """Test that alert_mode is set to webhook when only webhook_url is provided."""
+        config = create_config(webhook_url="https://example.com/webhook")
+        assert config.alert_mode == "webhook"
+
+
+class TestDashboardAlerter:
+    """Tests for DashboardAlerter."""
+
+    @pytest.fixture
+    def alerter(self):
+        """Create a dashboard alerter."""
+        return DashboardAlerter(
+            api_key="su_test_api_key",
+            dashboard_url="https://test.supabase.co/functions/v1",
+            timeout=5.0,
+            retry_count=2,
+        )
+
+    @pytest.fixture
+    def sample_event(self):
+        """Create a sample security event."""
+        return SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            timestamp=datetime.utcnow(),
+            source_ip="192.168.1.100",
+            path="/api/users",
+            method="POST",
+            matched_pattern=MatchedPattern(
+                pattern="' OR 1=1",
+                location="body",
+                field="username",
+            ),
+            description="SQL injection attempt",
+            request_headers={"content-type": "application/json"},
+        )
+
+    def test_is_configured(self, alerter):
+        """Test is_configured property."""
+        assert alerter.is_configured is True
+
+        unconfigured = DashboardAlerter()
+        assert unconfigured.is_configured is False
+
+    def test_build_payload(self, alerter, sample_event):
+        """Test payload building."""
+        payload = alerter._build_payload(sample_event, ActionTaken.BLOCKED)
+
+        assert payload["scan_type"] == "runtime"
+        assert payload["status"] == "completed"
+        assert len(payload["findings"]) == 1
+
+        finding = payload["findings"][0]
+        assert finding["finding_type"] == "attack"
+        assert finding["category"] == "runtime"
+        assert finding["severity"] == "HIGH"
+        assert "sql_injection" in finding["title"].lower()
+        assert finding["metadata"]["action_taken"] == "blocked"
+
+    def test_get_recommendation(self, alerter):
+        """Test getting recommendations for attack types."""
+        rec = alerter._get_recommendation("sql_injection")
+        assert "parameterize" in rec.lower() or "orm" in rec.lower()
+
+        rec = alerter._get_recommendation("xss")
+        assert "sanitize" in rec.lower() or "escape" in rec.lower()
+
+        rec = alerter._get_recommendation("unknown_type")
+        assert "review" in rec.lower()
+
+    @pytest.mark.asyncio
+    async def test_send_alert_success(self, alerter, sample_event):
+        """Test successful async alert sending."""
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        mock_client.post.return_value = mock_response
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await alerter.send_alert(sample_event, ActionTaken.BLOCKED)
+
+            assert result is True
+            mock_client.post.assert_called_once()
+            call_args = mock_client.post.call_args
+            assert "runtime-alert" in call_args[0][0]
+            assert "Bearer su_test_api_key" in call_args[1]["headers"]["Authorization"]
+
+    @pytest.mark.asyncio
+    async def test_send_alert_not_configured(self, sample_event):
+        """Test alert not sent when not configured."""
+        alerter = DashboardAlerter()  # No API key
+        result = await alerter.send_alert(sample_event, ActionTaken.BLOCKED)
+        assert result is False
+
+    def test_send_alert_sync_success(self, alerter, sample_event):
+        """Test successful sync alert sending."""
+        with patch("httpx.Client") as mock_client_class:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+
+            mock_client = MagicMock()
+            mock_client.post.return_value = mock_response
+            mock_client_class.return_value.__enter__.return_value = mock_client
+
+            result = alerter.send_alert_sync(sample_event, ActionTaken.LOGGED)
+
+            assert result is True
+            mock_client.post.assert_called_once()
+
+
+class TestVulnerableEndpointDetector:
+    """Tests for VulnerableEndpointDetector."""
+
+    @pytest.fixture
+    def detector(self):
+        """Create a detector instance."""
+        return VulnerableEndpointDetector()
+
+    def test_extract_imports(self, detector):
+        """Test import extraction from Python code."""
+        code = '''
+import os
+from flask import Flask, request
+from sqlalchemy import create_engine
+import subprocess
+'''
+        imports = detector._extract_imports(code)
+
+        assert "os" in imports
+        assert "flask" in imports
+        assert "sqlalchemy" in imports
+        assert "subprocess" in imports
+
+    def test_find_fastapi_routes(self, detector):
+        """Test finding FastAPI route decorators."""
+        code = '''
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/api/users")
+async def get_users():
+    return []
+
+@app.post("/api/users")
+async def create_user(user: User):
+    return user
+'''
+        endpoints = detector._find_routes(code, "test.py", ["fastapi"])
+
+        assert len(endpoints) == 2
+        paths = [e.path for e in endpoints]
+        assert "/api/users" in paths
+
+        get_endpoint = next(e for e in endpoints if e.method == "GET")
+        assert get_endpoint.function_name == "get_users"
+
+    def test_find_flask_routes(self, detector):
+        """Test finding Flask route decorators."""
+        code = '''
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/api/search")
+def search():
+    return []
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    return {}
+'''
+        endpoints = detector._find_routes(code, "test.py", ["flask"])
+
+        assert len(endpoints) == 2
+        paths = [e.path for e in endpoints]
+        assert "/api/search" in paths
+        assert "/api/login" in paths
+
+    def test_calculate_risk_scores_high_risk_imports(self, detector):
+        """Test risk score calculation for high-risk imports."""
+        result = AnalysisResult()
+
+        endpoint = EndpointInfo(
+            path="/api/eval",
+            method="POST",
+            imports=["subprocess", "os"],
+        )
+        result.all_endpoints.append(endpoint)
+
+        detector._calculate_risk_scores(result)
+
+        # Should have elevated risk due to subprocess and os imports
+        assert endpoint.risk_score >= 0.3
+        assert endpoint in result.vulnerable_endpoints
+
+    def test_calculate_risk_scores_path_patterns(self, detector):
+        """Test risk score for sensitive path patterns."""
+        result = AnalysisResult()
+
+        admin_endpoint = EndpointInfo(
+            path="/admin/users",
+            method="DELETE",
+            imports=[],
+        )
+        result.all_endpoints.append(admin_endpoint)
+
+        detector._calculate_risk_scores(result)
+
+        # Should have elevated risk due to "admin" in path and DELETE method
+        assert admin_endpoint.risk_score >= 0.3
+
+    def test_analyze_with_temp_project(self, detector):
+        """Test analyzing a temporary project directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a simple FastAPI app
+            app_code = '''
+from fastapi import FastAPI
+import subprocess
+
+app = FastAPI()
+
+@app.post("/api/execute")
+async def execute_command(cmd: str):
+    subprocess.run(cmd, shell=True)
+    return {"status": "done"}
+
+@app.get("/api/users")
+async def get_users():
+    return []
+'''
+            app_path = os.path.join(tmpdir, "main.py")
+            with open(app_path, "w") as f:
+                f.write(app_code)
+
+            result = detector.analyze(tmpdir)
+
+            assert len(result.all_endpoints) == 2
+
+            # The /api/execute endpoint should be flagged as vulnerable
+            # due to subprocess import and "exec" in path
+            exec_endpoint = next(
+                (e for e in result.all_endpoints if e.path == "/api/execute"),
+                None
+            )
+            assert exec_endpoint is not None
+            assert exec_endpoint.risk_score > 0.3
+
+    def test_get_watch_paths(self, detector):
+        """Test getting watch paths for a project."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_code = '''
+from fastapi import FastAPI
+import pickle
+
+app = FastAPI()
+
+@app.post("/api/deserialize")
+async def deserialize(data: bytes):
+    return pickle.loads(data)
+'''
+            app_path = os.path.join(tmpdir, "app.py")
+            with open(app_path, "w") as f:
+                f.write(app_code)
+
+            paths = detector.get_watch_paths(tmpdir)
+
+            assert "/api/deserialize" in paths
+
+    def test_detect_vulnerable_endpoints_convenience_function(self):
+        """Test the convenience function."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_code = '''
+from flask import Flask, request
+import os
+
+app = Flask(__name__)
+
+@app.route("/shell")
+def run_shell():
+    os.system(request.args.get("cmd"))
+'''
+            app_path = os.path.join(tmpdir, "app.py")
+            with open(app_path, "w") as f:
+                f.write(app_code)
+
+            paths = detect_vulnerable_endpoints(tmpdir)
+
+            assert "/shell" in paths
+
+
+class TestEndpointInfo:
+    """Tests for EndpointInfo dataclass."""
+
+    def test_create_endpoint_info(self):
+        """Test creating endpoint info."""
+        endpoint = EndpointInfo(
+            path="/api/users",
+            method="POST",
+            function_name="create_user",
+            file_path="app.py",
+            line_number=10,
+            imports=["flask", "sqlalchemy"],
+            vulnerable_packages=["sqlalchemy"],
+            risk_score=0.7,
+        )
+
+        assert endpoint.path == "/api/users"
+        assert endpoint.method == "POST"
+        assert endpoint.function_name == "create_user"
+        assert endpoint.risk_score == 0.7
+        assert "sqlalchemy" in endpoint.vulnerable_packages
+
+    def test_default_values(self):
+        """Test default values."""
+        endpoint = EndpointInfo(path="/test")
+
+        assert endpoint.method == "GET"
+        assert endpoint.function_name == ""
+        assert endpoint.imports == []
+        assert endpoint.risk_score == 0.0
+
+
+class TestAnalysisResult:
+    """Tests for AnalysisResult dataclass."""
+
+    def test_create_analysis_result(self):
+        """Test creating analysis result."""
+        result = AnalysisResult()
+
+        assert result.all_endpoints == []
+        assert result.vulnerable_endpoints == []
+        assert result.vulnerable_paths == []
+        assert result.vulnerable_packages == {}
+
+    def test_populate_result(self):
+        """Test populating analysis result."""
+        result = AnalysisResult()
+
+        endpoint = EndpointInfo(path="/api/users", risk_score=0.5)
+        result.all_endpoints.append(endpoint)
+        result.vulnerable_endpoints.append(endpoint)
+        result.vulnerable_paths.append("/api/users")
+        result.vulnerable_packages["sqlalchemy"] = ["CVE-2024-1234"]
+
+        assert len(result.all_endpoints) == 1
+        assert len(result.vulnerable_endpoints) == 1
+        assert "/api/users" in result.vulnerable_paths
+        assert "sqlalchemy" in result.vulnerable_packages

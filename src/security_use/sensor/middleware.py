@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import parse_qs
 
 from .config import SensorConfig, create_config
+from .dashboard_alerter import DashboardAlerter
 from .detector import AttackDetector
 from .models import ActionTaken, RequestData
 from .webhook import WebhookAlerter
@@ -17,24 +18,41 @@ logger = logging.getLogger(__name__)
 class SecurityMiddleware:
     """ASGI middleware for FastAPI/Starlette security monitoring.
 
-    Usage:
+    Usage with dashboard (recommended):
         from fastapi import FastAPI
         from security_use.sensor import SecurityMiddleware
 
         app = FastAPI()
         app.add_middleware(
             SecurityMiddleware,
-            webhook_url="https://your-dashboard.com/webhook",
+            api_key="su_...",  # Or set SECURITY_USE_API_KEY env var
             block_on_detection=True,
+        )
+
+    Usage with auto-detection of vulnerable endpoints:
+        app.add_middleware(
+            SecurityMiddleware,
+            auto_detect_vulnerable=True,
+            project_path="./",
+        )
+
+    Legacy usage with webhook:
+        app.add_middleware(
+            SecurityMiddleware,
+            webhook_url="https://your-webhook.com/alerts",
         )
     """
 
     def __init__(
         self,
         app: Any,
-        webhook_url: str,
-        block_on_detection: bool = False,
+        api_key: Optional[str] = None,
+        webhook_url: Optional[str] = None,
+        block_on_detection: bool = True,
         excluded_paths: Optional[list[str]] = None,
+        watch_paths: Optional[list[str]] = None,
+        auto_detect_vulnerable: bool = False,
+        project_path: Optional[str] = None,
         enabled_detectors: Optional[list[str]] = None,
         rate_limit_threshold: int = 100,
         config: Optional[SensorConfig] = None,
@@ -43,9 +61,13 @@ class SecurityMiddleware:
 
         Args:
             app: The ASGI application.
-            webhook_url: URL to send alerts to.
+            api_key: SecurityUse API key for dashboard alerting.
+            webhook_url: URL to send alerts to (legacy).
             block_on_detection: Return 403 on attack detection.
             excluded_paths: Paths to skip monitoring.
+            watch_paths: Only monitor these paths (None = all).
+            auto_detect_vulnerable: Auto-detect vulnerable endpoints.
+            project_path: Project path for auto-detection.
             enabled_detectors: List of detector types to enable.
             rate_limit_threshold: Requests per minute per IP.
             config: Optional pre-configured SensorConfig.
@@ -56,12 +78,20 @@ class SecurityMiddleware:
             self.config = config
         else:
             self.config = create_config(
+                api_key=api_key,
                 webhook_url=webhook_url,
                 block_on_detection=block_on_detection,
                 excluded_paths=excluded_paths,
+                watch_paths=watch_paths,
+                auto_detect_vulnerable=auto_detect_vulnerable,
+                project_path=project_path,
                 enabled_detectors=enabled_detectors,
                 rate_limit_threshold=rate_limit_threshold,
             )
+
+        # Auto-detect vulnerable endpoints if requested
+        if self.config.auto_detect_vulnerable and self.config.project_path:
+            self._detect_vulnerable_endpoints()
 
         self.detector = AttackDetector(
             enabled_detectors=self.config.enabled_detectors,
@@ -69,12 +99,50 @@ class SecurityMiddleware:
             rate_limit_window=self.config.rate_limit_window,
         )
 
-        self.alerter = WebhookAlerter(
-            webhook_url=self.config.webhook_url,
-            retry_count=self.config.webhook_retry_count,
-            timeout=self.config.webhook_timeout,
-            headers=self.config.webhook_headers,
-        )
+        # Set up alerters based on config
+        self.dashboard_alerter: Optional[DashboardAlerter] = None
+        self.webhook_alerter: Optional[WebhookAlerter] = None
+
+        if self.config.alert_mode in ("dashboard", "both"):
+            self.dashboard_alerter = DashboardAlerter(
+                api_key=self.config.api_key,
+                dashboard_url=self.config.dashboard_url,
+                timeout=self.config.webhook_timeout,
+                retry_count=self.config.webhook_retry_count,
+            )
+
+        if self.config.alert_mode in ("webhook", "both") and self.config.webhook_url:
+            self.webhook_alerter = WebhookAlerter(
+                webhook_url=self.config.webhook_url,
+                retry_count=self.config.webhook_retry_count,
+                timeout=self.config.webhook_timeout,
+                headers=self.config.webhook_headers,
+            )
+
+        # Log configuration
+        if self.config.watch_paths:
+            logger.info(f"SecurityMiddleware monitoring {len(self.config.watch_paths)} paths")
+        else:
+            logger.info("SecurityMiddleware monitoring all paths")
+
+    def _detect_vulnerable_endpoints(self) -> None:
+        """Auto-detect vulnerable endpoints from project scan."""
+        try:
+            from .endpoint_analyzer import VulnerableEndpointDetector
+
+            detector = VulnerableEndpointDetector()
+            paths = detector.get_watch_paths(self.config.project_path)
+
+            if paths:
+                # Merge with existing watch_paths
+                existing = set(self.config.watch_paths or [])
+                self.config.watch_paths = list(existing | set(paths))
+                logger.info(f"Auto-detected {len(paths)} vulnerable endpoints to monitor")
+            else:
+                logger.info("No vulnerable endpoints detected")
+
+        except Exception as e:
+            logger.warning(f"Failed to auto-detect vulnerable endpoints: {e}")
 
     async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
         """ASGI interface."""
@@ -85,8 +153,8 @@ class SecurityMiddleware:
         # Extract request data
         path = scope.get("path", "/")
 
-        # Check if path is excluded
-        if self.config.is_path_excluded(path):
+        # Check if path should be monitored
+        if not self.config.should_monitor_path(path):
             await self.app(scope, receive, send)
             return
 
@@ -104,7 +172,10 @@ class SecurityMiddleware:
 
             # Send alerts asynchronously
             for event in events:
-                asyncio.create_task(self.alerter.send_alert(event, action))
+                if self.dashboard_alerter:
+                    asyncio.create_task(self.dashboard_alerter.send_alert(event, action))
+                if self.webhook_alerter:
+                    asyncio.create_task(self.webhook_alerter.send_alert(event, action))
 
             if self.config.block_on_detection:
                 # Return 403 Forbidden
@@ -195,23 +266,34 @@ class SecurityMiddleware:
 class FlaskSecurityMiddleware:
     """WSGI middleware for Flask security monitoring.
 
-    Usage:
+    Usage with dashboard (recommended):
         from flask import Flask
         from security_use.sensor import FlaskSecurityMiddleware
 
         app = Flask(__name__)
         app.wsgi_app = FlaskSecurityMiddleware(
             app.wsgi_app,
-            webhook_url="https://your-dashboard.com/webhook",
+            api_key="su_...",  # Or set SECURITY_USE_API_KEY env var
+        )
+
+    Usage with auto-detection:
+        app.wsgi_app = FlaskSecurityMiddleware(
+            app.wsgi_app,
+            auto_detect_vulnerable=True,
+            project_path="./",
         )
     """
 
     def __init__(
         self,
         app: Any,
-        webhook_url: str,
-        block_on_detection: bool = False,
+        api_key: Optional[str] = None,
+        webhook_url: Optional[str] = None,
+        block_on_detection: bool = True,
         excluded_paths: Optional[list[str]] = None,
+        watch_paths: Optional[list[str]] = None,
+        auto_detect_vulnerable: bool = False,
+        project_path: Optional[str] = None,
         enabled_detectors: Optional[list[str]] = None,
         rate_limit_threshold: int = 100,
         config: Optional[SensorConfig] = None,
@@ -220,9 +302,13 @@ class FlaskSecurityMiddleware:
 
         Args:
             app: The WSGI application.
-            webhook_url: URL to send alerts to.
+            api_key: SecurityUse API key for dashboard alerting.
+            webhook_url: URL to send alerts to (legacy).
             block_on_detection: Return 403 on attack detection.
             excluded_paths: Paths to skip monitoring.
+            watch_paths: Only monitor these paths (None = all).
+            auto_detect_vulnerable: Auto-detect vulnerable endpoints.
+            project_path: Project path for auto-detection.
             enabled_detectors: List of detector types to enable.
             rate_limit_threshold: Requests per minute per IP.
             config: Optional pre-configured SensorConfig.
@@ -233,12 +319,20 @@ class FlaskSecurityMiddleware:
             self.config = config
         else:
             self.config = create_config(
+                api_key=api_key,
                 webhook_url=webhook_url,
                 block_on_detection=block_on_detection,
                 excluded_paths=excluded_paths,
+                watch_paths=watch_paths,
+                auto_detect_vulnerable=auto_detect_vulnerable,
+                project_path=project_path,
                 enabled_detectors=enabled_detectors,
                 rate_limit_threshold=rate_limit_threshold,
             )
+
+        # Auto-detect vulnerable endpoints if requested
+        if self.config.auto_detect_vulnerable and self.config.project_path:
+            self._detect_vulnerable_endpoints()
 
         self.detector = AttackDetector(
             enabled_detectors=self.config.enabled_detectors,
@@ -246,19 +340,56 @@ class FlaskSecurityMiddleware:
             rate_limit_window=self.config.rate_limit_window,
         )
 
-        self.alerter = WebhookAlerter(
-            webhook_url=self.config.webhook_url,
-            retry_count=self.config.webhook_retry_count,
-            timeout=self.config.webhook_timeout,
-            headers=self.config.webhook_headers,
-        )
+        # Set up alerters based on config
+        self.dashboard_alerter: Optional[DashboardAlerter] = None
+        self.webhook_alerter: Optional[WebhookAlerter] = None
+
+        if self.config.alert_mode in ("dashboard", "both"):
+            self.dashboard_alerter = DashboardAlerter(
+                api_key=self.config.api_key,
+                dashboard_url=self.config.dashboard_url,
+                timeout=self.config.webhook_timeout,
+                retry_count=self.config.webhook_retry_count,
+            )
+
+        if self.config.alert_mode in ("webhook", "both") and self.config.webhook_url:
+            self.webhook_alerter = WebhookAlerter(
+                webhook_url=self.config.webhook_url,
+                retry_count=self.config.webhook_retry_count,
+                timeout=self.config.webhook_timeout,
+                headers=self.config.webhook_headers,
+            )
+
+        # Log configuration
+        if self.config.watch_paths:
+            logger.info(f"FlaskSecurityMiddleware monitoring {len(self.config.watch_paths)} paths")
+        else:
+            logger.info("FlaskSecurityMiddleware monitoring all paths")
+
+    def _detect_vulnerable_endpoints(self) -> None:
+        """Auto-detect vulnerable endpoints from project scan."""
+        try:
+            from .endpoint_analyzer import VulnerableEndpointDetector
+
+            detector = VulnerableEndpointDetector()
+            paths = detector.get_watch_paths(self.config.project_path)
+
+            if paths:
+                existing = set(self.config.watch_paths or [])
+                self.config.watch_paths = list(existing | set(paths))
+                logger.info(f"Auto-detected {len(paths)} vulnerable endpoints to monitor")
+            else:
+                logger.info("No vulnerable endpoints detected")
+
+        except Exception as e:
+            logger.warning(f"Failed to auto-detect vulnerable endpoints: {e}")
 
     def __call__(self, environ: dict, start_response: Callable) -> Any:
         """WSGI interface."""
         path = environ.get("PATH_INFO", "/")
 
-        # Check if path is excluded
-        if self.config.is_path_excluded(path):
+        # Check if path should be monitored
+        if not self.config.should_monitor_path(path):
             return self.app(environ, start_response)
 
         request_data = self._extract_request_data(environ)
@@ -273,9 +404,12 @@ class FlaskSecurityMiddleware:
                 else ActionTaken.LOGGED
             )
 
-            # Send alerts synchronously (or could use thread pool)
+            # Send alerts synchronously
             for event in events:
-                self.alerter.send_alert_sync(event, action)
+                if self.dashboard_alerter:
+                    self.dashboard_alerter.send_alert_sync(event, action)
+                if self.webhook_alerter:
+                    self.webhook_alerter.send_alert_sync(event, action)
 
             if self.config.block_on_detection:
                 # Return 403 Forbidden
