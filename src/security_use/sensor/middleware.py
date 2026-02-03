@@ -161,7 +161,11 @@ class SecurityMiddleware:
             await self.app(scope, receive, send)
             return
 
-        request_data = await self._extract_request_data(scope, receive)
+        # Buffer the body and create a replay receive function
+        body, receive_wrapper = await self._buffer_body(receive)
+
+        # Build request data for analysis
+        request_data = self._build_request_data(scope, body)
 
         # Analyze for attacks
         events = self.detector.analyze_request(request_data)
@@ -185,13 +189,57 @@ class SecurityMiddleware:
                 await self._send_blocked_response(send, events[0])
                 return
 
-        # Continue to application
-        await self.app(scope, receive, send)
+        # Continue to application with replay receive that provides the buffered body
+        await self.app(scope, receive_wrapper, send)
 
-    async def _extract_request_data(
-        self, scope: dict, receive: Callable
-    ) -> RequestData:
-        """Extract request data from ASGI scope."""
+    async def _buffer_body(self, receive: Callable) -> tuple[bytes, Callable]:
+        """Buffer the entire request body and create a replay receive function.
+
+        Returns:
+            Tuple of (full_body, receive_wrapper) where receive_wrapper
+            can be passed to the app to replay the body.
+        """
+        body_parts = []
+
+        # Read all body chunks
+        while True:
+            message = await receive()
+            if message["type"] == "http.request":
+                body_parts.append(message.get("body", b""))
+                if not message.get("more_body", False):
+                    break
+            elif message["type"] == "http.disconnect":
+                break
+
+        full_body = b"".join(body_parts)
+
+        # Handle large bodies - truncate for analysis if needed
+        max_body_size = getattr(self.config, "max_body_size", 1024 * 1024)
+        analysis_body = full_body[:max_body_size] if len(full_body) > max_body_size else full_body
+
+        # Create a receive function that replays the buffered body
+        body_sent = False
+
+        async def receive_wrapper() -> dict:
+            nonlocal body_sent
+            if not body_sent:
+                body_sent = True
+                return {
+                    "type": "http.request",
+                    "body": full_body,
+                    "more_body": False,
+                }
+            # After body is sent, wait for disconnect or return empty
+            return {
+                "type": "http.request",
+                "body": b"",
+                "more_body": False,
+            }
+
+        return analysis_body, receive_wrapper
+
+    def _build_request_data(self, scope: dict, body: bytes) -> RequestData:
+        """Build request data from ASGI scope and buffered body."""
         method = scope.get("method", "GET")
         path = scope.get("path", "/")
         query_string = scope.get("query_string", b"").decode("utf-8")
@@ -216,24 +264,6 @@ class SecurityMiddleware:
             source_ip = headers["x-forwarded-for"].split(",")[0].strip()
         elif "x-real-ip" in headers:
             source_ip = headers["x-real-ip"]
-
-        # Read body (need to buffer for re-reading)
-        body = b""
-        body_parts = []
-
-        async def receive_wrapper():
-            nonlocal body
-            message = await receive()
-            if message["type"] == "http.request":
-                chunk = message.get("body", b"")
-                body_parts.append(chunk)
-                body = b"".join(body_parts)
-            return message
-
-        # We need to consume the body here
-        message = await receive()
-        if message["type"] == "http.request":
-            body = message.get("body", b"")
 
         return RequestData(
             method=method,

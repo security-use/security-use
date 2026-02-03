@@ -1225,3 +1225,182 @@ class TestAlertQueue:
             assert queue.alerts_failed == 1
         finally:
             queue.stop()
+
+
+class TestASGIBodyHandling:
+    """Tests for ASGI middleware body handling."""
+
+    @pytest.mark.asyncio
+    async def test_body_passed_to_application(self):
+        """Test that POST body is available to the application."""
+        from security_use.sensor import SecurityMiddleware
+
+        received_body = None
+
+        async def app(scope, receive, send):
+            nonlocal received_body
+            message = await receive()
+            received_body = message.get("body", b"")
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        middleware = SecurityMiddleware(app, block_on_detection=False)
+
+        body = b'{"user": "test", "action": "create"}'
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/users",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 8000),
+        }
+
+        body_sent = False
+
+        async def receive():
+            nonlocal body_sent
+            if not body_sent:
+                body_sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        responses = []
+
+        async def send(message):
+            responses.append(message)
+
+        await middleware(scope, receive, send)
+
+        assert received_body == body
+
+    @pytest.mark.asyncio
+    async def test_chunked_body_handling(self):
+        """Test that chunked transfer encoding is buffered correctly."""
+        from security_use.sensor import SecurityMiddleware
+
+        received_body = None
+
+        async def app(scope, receive, send):
+            nonlocal received_body
+            message = await receive()
+            received_body = message.get("body", b"")
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        middleware = SecurityMiddleware(app, block_on_detection=False)
+
+        chunks = [b'{"part1":', b'"value1",', b'"part2":', b'"value2"}']
+        expected_body = b"".join(chunks)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/data",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 8000),
+        }
+
+        chunk_index = 0
+
+        async def receive():
+            nonlocal chunk_index
+            if chunk_index < len(chunks):
+                chunk = chunks[chunk_index]
+                chunk_index += 1
+                more = chunk_index < len(chunks)
+                return {"type": "http.request", "body": chunk, "more_body": more}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        responses = []
+
+        async def send(message):
+            responses.append(message)
+
+        await middleware(scope, receive, send)
+
+        assert received_body == expected_body
+
+    @pytest.mark.asyncio
+    async def test_empty_body_handling(self):
+        """Test that empty body is handled correctly."""
+        from security_use.sensor import SecurityMiddleware
+
+        received_body = None
+
+        async def app(scope, receive, send):
+            nonlocal received_body
+            message = await receive()
+            received_body = message.get("body", b"")
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        middleware = SecurityMiddleware(app, block_on_detection=False)
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/users",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 8000),
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        responses = []
+
+        async def send(message):
+            responses.append(message)
+
+        await middleware(scope, receive, send)
+
+        assert received_body == b""
+
+    @pytest.mark.asyncio
+    async def test_body_available_after_detection(self):
+        """Test that body is available even when attack is detected but not blocked."""
+        from security_use.sensor import SecurityMiddleware
+
+        received_body = None
+
+        async def app(scope, receive, send):
+            nonlocal received_body
+            message = await receive()
+            received_body = message.get("body", b"")
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        middleware = SecurityMiddleware(app, block_on_detection=False)
+
+        # Body with SQL injection - should be detected but not blocked
+        body = b"username=admin' OR 1=1--"
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/login",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 8000),
+        }
+
+        body_sent = False
+
+        async def receive():
+            nonlocal body_sent
+            if not body_sent:
+                body_sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        responses = []
+
+        async def send(message):
+            responses.append(message)
+
+        await middleware(scope, receive, send)
+
+        # Body should still be available to application
+        assert received_body == body
