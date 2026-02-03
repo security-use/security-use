@@ -19,8 +19,8 @@ class SensorConfig:
     # Webhook settings (legacy/fallback)
     webhook_url: Optional[str] = None
     webhook_headers: dict[str, str] = field(default_factory=dict)
-    webhook_retry_count: int = 3
-    webhook_timeout: float = 10.0
+    webhook_retry_count: int = 2  # Reduced from 3 for faster failure recovery
+    webhook_timeout: float = 2.0  # Reduced from 10.0 for production use
 
     # Detection settings
     enabled_detectors: list[str] = field(
@@ -70,8 +70,8 @@ class SensorConfig:
             dashboard_url=data.get("dashboard_url") or os.environ.get("SECURITY_USE_DASHBOARD_URL"),
             webhook_url=data.get("webhook_url"),
             webhook_headers=data.get("webhook_headers", {}),
-            webhook_retry_count=data.get("webhook_retry_count", 3),
-            webhook_timeout=data.get("webhook_timeout", 10.0),
+            webhook_retry_count=data.get("webhook_retry_count", 2),
+            webhook_timeout=data.get("webhook_timeout", 2.0),
             enabled_detectors=data.get(
                 "enabled_detectors",
                 [

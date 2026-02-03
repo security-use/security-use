@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 # Default dashboard API URL
 DEFAULT_DASHBOARD_URL = "https://lhirdknhtzkqynfavdao.supabase.co/functions/v1"
+
+# Reduced defaults for better production behavior
+DEFAULT_TIMEOUT = 2.0  # Reduced from 10.0
+DEFAULT_RETRY_COUNT = 2  # Reduced from 3
 
 
 class DashboardAlerter:
@@ -37,8 +41,8 @@ class DashboardAlerter:
         self,
         api_key: Optional[str] = None,
         dashboard_url: Optional[str] = None,
-        timeout: float = 10.0,
-        retry_count: int = 3,
+        timeout: float = DEFAULT_TIMEOUT,
+        retry_count: int = DEFAULT_RETRY_COUNT,
         circuit_failure_threshold: int = 5,
         circuit_reset_timeout: float = 60.0,
     ):
@@ -49,8 +53,8 @@ class DashboardAlerter:
                      SECURITY_USE_API_KEY environment variable.
             dashboard_url: Base URL for the dashboard API. Defaults to
                           SecurityUse cloud.
-            timeout: Request timeout in seconds.
-            retry_count: Number of retry attempts on failure.
+            timeout: Request timeout in seconds (default: 2.0).
+            retry_count: Number of retry attempts on failure (default: 2).
             circuit_failure_threshold: Consecutive failures before opening circuit.
             circuit_reset_timeout: Seconds to wait before trying again (half-open).
         """
@@ -61,6 +65,29 @@ class DashboardAlerter:
         self.timeout = timeout
         self.retry_count = retry_count
 
+        # Validate configuration
+        self._config_valid = True
+        self._config_error: Optional[str] = None
+
+        if not self.api_key:
+            logger.warning(
+                "No API key provided. Set SECURITY_USE_API_KEY environment variable "
+                "or pass api_key parameter to enable dashboard alerting."
+            )
+            self._config_valid = False
+            self._config_error = "No API key configured"
+
+        # Validate dashboard URL
+        if self.dashboard_url:
+            try:
+                parsed = urlparse(self.dashboard_url)
+                if not parsed.scheme or not parsed.netloc:
+                    raise ValueError("Invalid URL format: missing scheme or host")
+            except Exception as e:
+                logger.error(f"Invalid dashboard URL '{self.dashboard_url}': {e}")
+                self._config_valid = False
+                self._config_error = f"Invalid dashboard URL: {e}"
+
         # Initialize circuit breaker
         self._circuit_breaker = CircuitBreaker(
             failure_threshold=circuit_failure_threshold,
@@ -68,16 +95,55 @@ class DashboardAlerter:
             name="dashboard_alerter",
         )
 
-        if not self.api_key:
-            logger.warning(
-                "No API key provided. Set SECURITY_USE_API_KEY environment variable "
-                "or pass api_key parameter to enable dashboard alerting."
-            )
+        # Shared HTTP clients for connection reuse (lazy initialization)
+        self._async_client: Optional[httpx.AsyncClient] = None
+        self._sync_client: Optional[httpx.Client] = None
 
     @property
     def is_configured(self) -> bool:
         """Check if the alerter is properly configured."""
-        return bool(self.api_key)
+        return bool(self.api_key) and self._config_valid
+
+    @property
+    def config_error(self) -> Optional[str]:
+        """Get configuration error message if any."""
+        return self._config_error
+
+    def _get_async_client(self) -> httpx.AsyncClient:
+        """Get or create the async HTTP client."""
+        if self._async_client is None or self._async_client.is_closed:
+            self._async_client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=httpx.Limits(
+                    max_keepalive_connections=5,
+                    max_connections=10,
+                ),
+            )
+        return self._async_client
+
+    def _get_sync_client(self) -> httpx.Client:
+        """Get or create the sync HTTP client."""
+        if self._sync_client is None or self._sync_client.is_closed:
+            self._sync_client = httpx.Client(
+                timeout=self.timeout,
+                limits=httpx.Limits(
+                    max_keepalive_connections=5,
+                    max_connections=10,
+                ),
+            )
+        return self._sync_client
+
+    async def close(self) -> None:
+        """Close the async HTTP client."""
+        if self._async_client is not None:
+            await self._async_client.aclose()
+            self._async_client = None
+
+    def close_sync(self) -> None:
+        """Close the sync HTTP client."""
+        if self._sync_client is not None:
+            self._sync_client.close()
+            self._sync_client = None
 
     def _build_payload(
         self,
@@ -162,8 +228,12 @@ class DashboardAlerter:
         Returns:
             True if the alert was sent successfully, False otherwise.
         """
+        # Early return if not configured (graceful degradation)
         if not self.is_configured:
-            logger.debug("Dashboard alerter not configured, skipping alert")
+            logger.debug(
+                f"Dashboard alerter not configured ({self._config_error}), "
+                "skipping alert"
+            )
             return False
 
         # Check circuit breaker first
@@ -181,31 +251,32 @@ class DashboardAlerter:
             "Content-Type": "application/json",
         }
 
+        client = self._get_async_client()
+
         for attempt in range(self.retry_count):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.post(url, json=payload, headers=headers)
+                response = await client.post(url, json=payload, headers=headers)
 
-                    if response.status_code in (200, 201, 202):
-                        self._circuit_breaker.record_success()
-                        logger.info(f"Alert sent to dashboard: {event.event_type.value}")
-                        return True
-                    elif response.status_code == 401:
-                        # Auth error, don't count as circuit failure
-                        logger.error("Invalid API key for dashboard alerting")
-                        return False
-                    elif response.status_code == 404:
-                        # Fallback to scan-upload endpoint
-                        url = urljoin(self.dashboard_url + "/", "scan-upload")
-                        continue
-                    else:
-                        logger.warning(
-                            f"Dashboard alert failed (attempt {attempt + 1}): "
-                            f"{response.status_code} - {response.text}"
-                        )
+                if response.status_code in (200, 201, 202):
+                    self._circuit_breaker.record_success()
+                    logger.info(f"Alert sent to dashboard: {event.event_type.value}")
+                    return True
+                elif response.status_code == 401:
+                    # Auth error, don't count as circuit failure
+                    logger.error("Invalid API key for dashboard alerting")
+                    return False
+                elif response.status_code == 404:
+                    # Fallback to scan-upload endpoint
+                    url = urljoin(self.dashboard_url + "/", "scan-upload")
+                    continue
+                else:
+                    logger.warning(
+                        f"Dashboard alert failed (attempt {attempt + 1}): "
+                        f"{response.status_code} - {response.text}"
+                    )
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
-                logger.warning(f"Dashboard alert timeout (attempt {attempt + 1}): {e}")
+                logger.warning(f"Dashboard connection failed (attempt {attempt + 1}): {e}")
             except Exception as e:
                 logger.error(f"Dashboard alert error (attempt {attempt + 1}): {e}")
 
@@ -227,8 +298,12 @@ class DashboardAlerter:
         Returns:
             True if the alert was sent successfully, False otherwise.
         """
+        # Early return if not configured (graceful degradation)
         if not self.is_configured:
-            logger.debug("Dashboard alerter not configured, skipping alert")
+            logger.debug(
+                f"Dashboard alerter not configured ({self._config_error}), "
+                "skipping alert"
+            )
             return False
 
         # Check circuit breaker first
@@ -246,31 +321,32 @@ class DashboardAlerter:
             "Content-Type": "application/json",
         }
 
+        client = self._get_sync_client()
+
         for attempt in range(self.retry_count):
             try:
-                with httpx.Client(timeout=self.timeout) as client:
-                    response = client.post(url, json=payload, headers=headers)
+                response = client.post(url, json=payload, headers=headers)
 
-                    if response.status_code in (200, 201, 202):
-                        self._circuit_breaker.record_success()
-                        logger.info(f"Alert sent to dashboard: {event.event_type.value}")
-                        return True
-                    elif response.status_code == 401:
-                        # Auth error, don't count as circuit failure
-                        logger.error("Invalid API key for dashboard alerting")
-                        return False
-                    elif response.status_code == 404:
-                        # Fallback to scan-upload endpoint
-                        url = urljoin(self.dashboard_url + "/", "scan-upload")
-                        continue
-                    else:
-                        logger.warning(
-                            f"Dashboard alert failed (attempt {attempt + 1}): "
-                            f"{response.status_code} - {response.text}"
-                        )
+                if response.status_code in (200, 201, 202):
+                    self._circuit_breaker.record_success()
+                    logger.info(f"Alert sent to dashboard: {event.event_type.value}")
+                    return True
+                elif response.status_code == 401:
+                    # Auth error, don't count as circuit failure
+                    logger.error("Invalid API key for dashboard alerting")
+                    return False
+                elif response.status_code == 404:
+                    # Fallback to scan-upload endpoint
+                    url = urljoin(self.dashboard_url + "/", "scan-upload")
+                    continue
+                else:
+                    logger.warning(
+                        f"Dashboard alert failed (attempt {attempt + 1}): "
+                        f"{response.status_code} - {response.text}"
+                    )
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
-                logger.warning(f"Dashboard alert timeout (attempt {attempt + 1}): {e}")
+                logger.warning(f"Dashboard connection failed (attempt {attempt + 1}): {e}")
             except Exception as e:
                 logger.error(f"Dashboard alert error (attempt {attempt + 1}): {e}")
 

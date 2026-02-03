@@ -792,15 +792,13 @@ class TestDashboardAlerter:
     @pytest.mark.asyncio
     async def test_send_alert_success(self, alerter, sample_event):
         """Test successful async alert sending."""
-        mock_client = AsyncMock()
         mock_response = MagicMock()
         mock_response.status_code = 200
 
+        mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
 
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client_class.return_value.__aenter__.return_value = mock_client
-
+        with patch.object(alerter, "_get_async_client", return_value=mock_client):
             result = await alerter.send_alert(sample_event, ActionTaken.BLOCKED)
 
             assert result is True
@@ -818,14 +816,13 @@ class TestDashboardAlerter:
 
     def test_send_alert_sync_success(self, alerter, sample_event):
         """Test successful sync alert sending."""
-        with patch("httpx.Client") as mock_client_class:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
+        mock_response = MagicMock()
+        mock_response.status_code = 200
 
-            mock_client = MagicMock()
-            mock_client.post.return_value = mock_response
-            mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
 
+        with patch.object(alerter, "_get_sync_client", return_value=mock_client):
             result = alerter.send_alert_sync(sample_event, ActionTaken.LOGGED)
 
             assert result is True
@@ -989,6 +986,102 @@ class TestDashboardAlerterCircuitBreaker:
         stats = alerter.circuit_breaker_stats
         assert stats.state == CircuitState.CLOSED
         assert stats.failure_count == 0
+
+
+class TestDashboardAlerterDefaults:
+    """Tests for DashboardAlerter defaults and graceful degradation."""
+
+    def test_default_timeout_is_reasonable(self):
+        """Default timeout should be 2 seconds or less."""
+        alerter = DashboardAlerter(api_key="test")
+        assert alerter.timeout <= 2.0
+
+    def test_default_retry_count_is_reasonable(self):
+        """Default retry count should be 2 or less."""
+        alerter = DashboardAlerter(api_key="test")
+        assert alerter.retry_count <= 2
+
+    def test_malformed_url_handled_gracefully(self):
+        """Malformed dashboard URL should be caught during init."""
+        alerter = DashboardAlerter(
+            api_key="test",
+            dashboard_url="not-a-valid-url",
+        )
+
+        assert alerter.is_configured is False
+        assert alerter.config_error is not None
+        assert "Invalid" in alerter.config_error
+
+    def test_missing_api_key_handled_gracefully(self):
+        """Missing API key should result in not configured."""
+        # Clear env var if set
+        old_val = os.environ.pop("SECURITY_USE_API_KEY", None)
+        try:
+            alerter = DashboardAlerter()
+            assert alerter.is_configured is False
+        finally:
+            if old_val:
+                os.environ["SECURITY_USE_API_KEY"] = old_val
+
+    @pytest.mark.asyncio
+    async def test_connection_reuse(self):
+        """HTTP client should be reused across calls."""
+        alerter = DashboardAlerter(api_key="test")
+
+        client1 = alerter._get_async_client()
+        client2 = alerter._get_async_client()
+
+        assert client1 is client2
+
+        await alerter.close()
+
+    def test_connection_reuse_sync(self):
+        """Sync HTTP client should be reused across calls."""
+        alerter = DashboardAlerter(api_key="test")
+
+        client1 = alerter._get_sync_client()
+        client2 = alerter._get_sync_client()
+
+        assert client1 is client2
+
+        alerter.close_sync()
+
+    @pytest.mark.asyncio
+    async def test_graceful_degradation_on_config_error(self):
+        """Alerter should return False without error when misconfigured."""
+        alerter = DashboardAlerter(
+            api_key="test",
+            dashboard_url=":::invalid:::",
+        )
+
+        event = SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            timestamp=datetime.utcnow(),
+            source_ip="127.0.0.1",
+            path="/test",
+            method="GET",
+            matched_pattern=MatchedPattern(
+                pattern="' OR 1=1",
+                location="body",
+                field="username",
+            ),
+            description="SQL injection attempt",
+        )
+
+        # Should return False without raising
+        result = await alerter.send_alert(event, ActionTaken.LOGGED)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_close_handles_none_client(self):
+        """close() should handle case where client was never created."""
+        alerter = DashboardAlerter(api_key="test")
+        # Client was never created
+        assert alerter._async_client is None
+        # Should not raise
+        await alerter.close()
+        assert alerter._async_client is None
 
 
 class TestFireAndForget:
