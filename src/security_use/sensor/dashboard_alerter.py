@@ -117,7 +117,7 @@ class DashboardAlerter:
                 }
             ],
             "metadata": {
-                "sensor_version": "0.2.8",
+                "sensor_version": "0.2.9",
                 "alert_type": "runtime_attack",
             }
         }

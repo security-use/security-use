@@ -31,7 +31,7 @@
 ```bash
 $ security-use scan all ./my-project
 
- SecurityUse v0.2.8
+ SecurityUse v0.2.9
 
  Scanning dependencies...
  ✓ Found 3 vulnerabilities in 47 packages
@@ -340,7 +340,7 @@ for endpoint in result.vulnerable_endpoints:
     }
   }],
   "metadata": {
-    "sensor_version": "0.2.8",
+    "sensor_version": "0.2.9",
     "alert_type": "runtime_attack"
   }
 }
