@@ -97,6 +97,8 @@ class SecurityMiddleware:
             enabled_detectors=self.config.enabled_detectors,
             rate_limit_threshold=self.config.rate_limit_threshold,
             rate_limit_window=self.config.rate_limit_window,
+            rate_limit_cleanup_interval=self.config.rate_limit_cleanup_interval,
+            rate_limit_max_ips=self.config.rate_limit_max_ips,
         )
 
         # Set up alerters based on config
@@ -338,6 +340,8 @@ class FlaskSecurityMiddleware:
             enabled_detectors=self.config.enabled_detectors,
             rate_limit_threshold=self.config.rate_limit_threshold,
             rate_limit_window=self.config.rate_limit_window,
+            rate_limit_cleanup_interval=self.config.rate_limit_cleanup_interval,
+            rate_limit_max_ips=self.config.rate_limit_max_ips,
         )
 
         # Set up alerters based on config

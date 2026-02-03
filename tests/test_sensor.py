@@ -364,6 +364,100 @@ class TestRateLimiter:
 
         assert limiter.get_request_count("192.168.1.1") == 3
 
+    def test_cleanup_removes_stale_ips(self):
+        """Test that stale IPs are removed during cleanup."""
+        import time as time_module
+
+        limiter = RateLimiter(
+            threshold=100,
+            window_seconds=1,  # 1 second window
+            cleanup_interval=0,  # Immediate cleanup
+        )
+
+        # Add requests from many IPs
+        for i in range(100):
+            limiter.check(f"192.168.1.{i}")
+
+        assert limiter.tracked_ip_count == 100
+
+        # Wait for window to expire
+        time_module.sleep(1.1)
+
+        # Trigger cleanup with new request
+        limiter.check("10.0.0.1")
+
+        # Old IPs should be cleaned
+        assert limiter.tracked_ip_count == 1
+        assert limiter.total_cleaned == 100
+
+    def test_emergency_cleanup(self):
+        """Test emergency cleanup when max IPs exceeded."""
+        limiter = RateLimiter(
+            threshold=100,
+            window_seconds=60,
+            cleanup_interval=0,
+            max_tracked_ips=10,  # Low limit for testing
+        )
+
+        # Add more IPs than limit
+        for i in range(20):
+            limiter.check(f"192.168.1.{i}")
+
+        # Should have cleaned down to near limit
+        assert limiter.tracked_ip_count <= 11  # max + buffer margin
+
+    def test_thread_safety(self):
+        """Test rate limiter thread safety."""
+        import threading
+
+        limiter = RateLimiter(threshold=1000, window_seconds=60)
+        errors = []
+
+        def worker(start_ip):
+            try:
+                for i in range(100):
+                    limiter.check(f"10.{start_ip}.0.{i}")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+
+    def test_tracked_ip_count(self):
+        """Test tracked_ip_count property."""
+        limiter = RateLimiter(threshold=10, window_seconds=60)
+
+        assert limiter.tracked_ip_count == 0
+
+        limiter.check("192.168.1.1")
+        limiter.check("192.168.1.2")
+        limiter.check("192.168.1.3")
+
+        assert limiter.tracked_ip_count == 3
+
+    def test_stats_property(self):
+        """Test stats property."""
+        limiter = RateLimiter(
+            threshold=100,
+            window_seconds=60,
+            max_tracked_ips=50000,
+        )
+
+        limiter.check("192.168.1.1")
+
+        stats = limiter.stats
+
+        assert stats["tracked_ips"] == 1
+        assert stats["total_cleaned"] == 0
+        assert stats["threshold"] == 100
+        assert stats["window_seconds"] == 60
+        assert stats["max_tracked_ips"] == 50000
+
 
 class TestSensorConfig:
     """Tests for SensorConfig."""

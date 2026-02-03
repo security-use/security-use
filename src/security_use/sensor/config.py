@@ -37,6 +37,8 @@ class SensorConfig:
     # Rate limiting
     rate_limit_threshold: int = 100  # requests per window per IP
     rate_limit_window: int = 60  # seconds
+    rate_limit_cleanup_interval: int = 300  # seconds between cleanup runs
+    rate_limit_max_ips: int = 100000  # max tracked IPs to prevent memory leak
 
     # Behavior
     block_on_detection: bool = True  # Return 403 on attack detection (default True now)
@@ -75,6 +77,8 @@ class SensorConfig:
             ),
             rate_limit_threshold=data.get("rate_limit_threshold", 100),
             rate_limit_window=data.get("rate_limit_window", 60),
+            rate_limit_cleanup_interval=data.get("rate_limit_cleanup_interval", 300),
+            rate_limit_max_ips=data.get("rate_limit_max_ips", 100000),
             block_on_detection=data.get("block_on_detection", True),
             excluded_paths=data.get("excluded_paths", []),
             watch_paths=data.get("watch_paths"),
@@ -97,6 +101,8 @@ class SensorConfig:
             "enabled_detectors": self.enabled_detectors,
             "rate_limit_threshold": self.rate_limit_threshold,
             "rate_limit_window": self.rate_limit_window,
+            "rate_limit_cleanup_interval": self.rate_limit_cleanup_interval,
+            "rate_limit_max_ips": self.rate_limit_max_ips,
             "block_on_detection": self.block_on_detection,
             "excluded_paths": self.excluded_paths,
             "watch_paths": self.watch_paths,

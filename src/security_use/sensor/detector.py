@@ -1,6 +1,7 @@
 """Attack pattern detection engine."""
 
 import re
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -81,39 +82,135 @@ SUSPICIOUS_HEADER_PATTERNS = [
 
 
 class RateLimiter:
-    """Track request frequency per IP."""
+    """Track request frequency per IP with automatic memory cleanup.
 
-    def __init__(self, threshold: int = 100, window_seconds: int = 60):
+    This rate limiter periodically cleans up stale IPs to prevent unbounded
+    memory growth. It also enforces a maximum number of tracked IPs.
+    """
+
+    def __init__(
+        self,
+        threshold: int = 100,
+        window_seconds: int = 60,
+        cleanup_interval: int = 300,
+        max_tracked_ips: int = 100000,
+    ):
+        """Initialize the rate limiter.
+
+        Args:
+            threshold: Requests per window before rate limit triggers.
+            window_seconds: Time window in seconds for rate limiting.
+            cleanup_interval: Seconds between cleanup runs.
+            max_tracked_ips: Maximum number of IPs to track.
+        """
         self.threshold = threshold
         self.window_seconds = window_seconds
+        self.cleanup_interval = cleanup_interval
+        self.max_tracked_ips = max_tracked_ips
+
         self._requests: dict[str, list[float]] = defaultdict(list)
+        self._lock = threading.Lock()
+        self._last_cleanup = time()
+
+        # Stats
+        self.total_cleaned = 0
 
     def check(self, ip: str) -> bool:
         """Check if IP has exceeded rate limit. Returns True if exceeded."""
         now = time()
+
+        with self._lock:
+            # Trigger cleanup if interval passed
+            if now - self._last_cleanup > self.cleanup_interval:
+                self._cleanup(now)
+
+            cutoff = now - self.window_seconds
+
+            # Clean old entries for this IP
+            self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
+
+            # Add current request
+            self._requests[ip].append(now)
+
+            return len(self._requests[ip]) > self.threshold
+
+    def _cleanup(self, now: float) -> None:
+        """Remove IPs with no recent requests. Must be called with lock held."""
         cutoff = now - self.window_seconds
 
-        # Clean old entries
-        self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
+        # Find IPs to remove
+        to_remove = []
+        for ip, timestamps in self._requests.items():
+            # Remove if no recent timestamps
+            if not timestamps or all(t <= cutoff for t in timestamps):
+                to_remove.append(ip)
 
-        # Add current request
-        self._requests[ip].append(now)
+        # Remove stale IPs
+        for ip in to_remove:
+            del self._requests[ip]
 
-        return len(self._requests[ip]) > self.threshold
+        self.total_cleaned += len(to_remove)
+        self._last_cleanup = now
+
+        # Emergency cleanup if still too many IPs
+        if len(self._requests) > self.max_tracked_ips:
+            self._emergency_cleanup(now)
+
+    def _emergency_cleanup(self, now: float) -> None:
+        """Emergency cleanup when max IPs exceeded. Must be called with lock held.
+
+        Removes least recently active IPs until under limit.
+        """
+        if len(self._requests) <= self.max_tracked_ips:
+            return
+
+        # Sort IPs by most recent timestamp
+        ip_last_seen = []
+        for ip, timestamps in self._requests.items():
+            last_seen = max(timestamps) if timestamps else 0
+            ip_last_seen.append((ip, last_seen))
+
+        # Sort by last seen (oldest first)
+        ip_last_seen.sort(key=lambda x: x[1])
+
+        # Remove oldest until under limit (with buffer)
+        to_remove = len(self._requests) - self.max_tracked_ips + 1000
+        for ip, _ in ip_last_seen[:to_remove]:
+            del self._requests[ip]
+            self.total_cleaned += 1
 
     def get_request_count(self, ip: str) -> int:
         """Get current request count for IP."""
         now = time()
         cutoff = now - self.window_seconds
-        self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
-        return len(self._requests[ip])
+
+        with self._lock:
+            self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
+            return len(self._requests[ip])
 
     def reset(self, ip: Optional[str] = None) -> None:
         """Reset rate limit tracking."""
-        if ip:
-            self._requests.pop(ip, None)
-        else:
-            self._requests.clear()
+        with self._lock:
+            if ip:
+                self._requests.pop(ip, None)
+            else:
+                self._requests.clear()
+
+    @property
+    def tracked_ip_count(self) -> int:
+        """Number of IPs currently being tracked."""
+        return len(self._requests)
+
+    @property
+    def stats(self) -> dict:
+        """Get rate limiter statistics."""
+        return {
+            "tracked_ips": len(self._requests),
+            "total_cleaned": self.total_cleaned,
+            "threshold": self.threshold,
+            "window_seconds": self.window_seconds,
+            "max_tracked_ips": self.max_tracked_ips,
+        }
 
 
 class AttackDetector:
@@ -124,6 +221,8 @@ class AttackDetector:
         enabled_detectors: Optional[list[str]] = None,
         rate_limit_threshold: int = 100,
         rate_limit_window: int = 60,
+        rate_limit_cleanup_interval: int = 300,
+        rate_limit_max_ips: int = 100000,
     ):
         """Initialize the attack detector.
 
@@ -134,6 +233,8 @@ class AttackDetector:
                 Defaults to all detectors.
             rate_limit_threshold: Requests per window before rate limit triggers.
             rate_limit_window: Time window in seconds for rate limiting.
+            rate_limit_cleanup_interval: Seconds between cleanup runs.
+            rate_limit_max_ips: Maximum number of IPs to track.
         """
         self.enabled_detectors = enabled_detectors or [
             "sqli",
@@ -143,7 +244,12 @@ class AttackDetector:
             "rate_limit",
             "suspicious_headers",
         ]
-        self.rate_limiter = RateLimiter(rate_limit_threshold, rate_limit_window)
+        self.rate_limiter = RateLimiter(
+            threshold=rate_limit_threshold,
+            window_seconds=rate_limit_window,
+            cleanup_interval=rate_limit_cleanup_interval,
+            max_tracked_ips=rate_limit_max_ips,
+        )
         self._patterns = self._compile_patterns()
 
     def _compile_patterns(self) -> dict[AttackType, list[DetectionPattern]]:
