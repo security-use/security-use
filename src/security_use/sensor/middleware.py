@@ -2,8 +2,9 @@
 
 import asyncio
 import logging
+import threading
 from io import BytesIO
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Coroutine, Optional
 from urllib.parse import parse_qs
 
 from .alert_queue import get_alert_queue
@@ -14,6 +15,107 @@ from .models import ActionTaken, RequestData
 from .webhook import WebhookAlerter
 
 logger = logging.getLogger(__name__)
+
+
+# Global alert stats tracking (thread-safe)
+class _AlertStats:
+    """Thread-safe alert statistics tracking."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._sent = 0
+        self._failed = 0
+
+    def record_sent(self) -> None:
+        """Record a successfully sent alert."""
+        with self._lock:
+            self._sent += 1
+
+    def record_failed(self) -> None:
+        """Record a failed alert."""
+        with self._lock:
+            self._failed += 1
+
+    @property
+    def sent(self) -> int:
+        """Get count of sent alerts."""
+        with self._lock:
+            return self._sent
+
+    @property
+    def failed(self) -> int:
+        """Get count of failed alerts."""
+        with self._lock:
+            return self._failed
+
+    def reset(self) -> None:
+        """Reset all statistics."""
+        with self._lock:
+            self._sent = 0
+            self._failed = 0
+
+    def to_dict(self) -> dict:
+        """Get stats as dictionary."""
+        with self._lock:
+            return {"sent": self._sent, "failed": self._failed}
+
+
+_alert_stats = _AlertStats()
+
+
+def get_alert_stats() -> dict:
+    """Get alert delivery statistics.
+
+    Returns:
+        Dictionary with 'sent' and 'failed' counts.
+    """
+    return _alert_stats.to_dict()
+
+
+def reset_alert_stats() -> None:
+    """Reset alert statistics (mainly for testing)."""
+    _alert_stats.reset()
+
+
+def fire_and_forget(
+    coro: Coroutine[Any, Any, Any],
+    name: str = "alert_task",
+) -> asyncio.Task:
+    """Create a task that logs exceptions instead of swallowing them.
+
+    This wrapper ensures that exceptions in fire-and-forget async tasks
+    are properly logged rather than being silently ignored.
+
+    Args:
+        coro: The coroutine to run.
+        name: Task name for logging/debugging.
+
+    Returns:
+        The created task.
+    """
+
+    async def wrapper():
+        try:
+            result = await coro
+            # Track success if the alert was sent (result is True or truthy)
+            if result:
+                _alert_stats.record_sent()
+            else:
+                _alert_stats.record_failed()
+            return result
+        except asyncio.CancelledError:
+            logger.debug(f"Task '{name}' was cancelled")
+            raise
+        except Exception as e:
+            _alert_stats.record_failed()
+            logger.error(
+                f"Task '{name}' failed with exception: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            return None
+
+    task = asyncio.create_task(wrapper(), name=name)
+    return task
 
 
 class SecurityMiddleware:
@@ -177,12 +279,18 @@ class SecurityMiddleware:
                 else ActionTaken.LOGGED
             )
 
-            # Send alerts asynchronously
+            # Send alerts asynchronously with error handling
             for event in events:
                 if self.dashboard_alerter:
-                    asyncio.create_task(self.dashboard_alerter.send_alert(event, action))
+                    fire_and_forget(
+                        self.dashboard_alerter.send_alert(event, action),
+                        name=f"dashboard_alert_{event.event_type.value}",
+                    )
                 if self.webhook_alerter:
-                    asyncio.create_task(self.webhook_alerter.send_alert(event, action))
+                    fire_and_forget(
+                        self.webhook_alerter.send_alert(event, action),
+                        name=f"webhook_alert_{event.event_type.value}",
+                    )
 
             if self.config.block_on_detection:
                 # Return 403 Forbidden

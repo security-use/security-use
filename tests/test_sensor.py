@@ -28,6 +28,9 @@ from security_use.sensor import (
     CircuitBreaker,
     CircuitState,
     CircuitStats,
+    fire_and_forget,
+    get_alert_stats,
+    reset_alert_stats,
 )
 
 
@@ -986,6 +989,111 @@ class TestDashboardAlerterCircuitBreaker:
         stats = alerter.circuit_breaker_stats
         assert stats.state == CircuitState.CLOSED
         assert stats.failure_count == 0
+
+
+class TestFireAndForget:
+    """Tests for fire_and_forget async task wrapper."""
+
+    @pytest.fixture(autouse=True)
+    def reset_stats(self):
+        """Reset stats before each test."""
+        reset_alert_stats()
+        yield
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_logs_exceptions(self, caplog):
+        """Exceptions in fire-and-forget tasks should be logged."""
+        import logging
+
+        async def failing_task():
+            raise ValueError("Test error")
+
+        with caplog.at_level(logging.ERROR):
+            task = fire_and_forget(failing_task(), name="test_task")
+            await task
+
+        assert "test_task" in caplog.text
+        assert "ValueError" in caplog.text
+        assert "Test error" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_tracks_success(self):
+        """Successful tasks should increment sent counter."""
+
+        async def success_task():
+            return True
+
+        task = fire_and_forget(success_task(), name="test")
+        await task
+
+        stats = get_alert_stats()
+        assert stats["sent"] == 1
+        assert stats["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_tracks_failure_on_exception(self):
+        """Failed tasks should increment failed counter."""
+
+        async def failing_task():
+            raise RuntimeError("fail")
+
+        task = fire_and_forget(failing_task(), name="test")
+        await task
+
+        stats = get_alert_stats()
+        assert stats["sent"] == 0
+        assert stats["failed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_tracks_failure_on_false_return(self):
+        """Tasks returning False should increment failed counter."""
+
+        async def false_return_task():
+            return False
+
+        task = fire_and_forget(false_return_task(), name="test")
+        await task
+
+        stats = get_alert_stats()
+        assert stats["sent"] == 0
+        assert stats["failed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_handles_cancellation(self):
+        """Cancelled tasks should not count as failures."""
+        import asyncio
+
+        async def slow_task():
+            await asyncio.sleep(10)
+
+        task = fire_and_forget(slow_task(), name="slow")
+        await asyncio.sleep(0.01)
+        task.cancel()
+
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        stats = get_alert_stats()
+        assert stats["failed"] == 0  # Cancellation is not a failure
+
+    @pytest.mark.asyncio
+    async def test_reset_alert_stats(self):
+        """Test that reset_alert_stats clears counters."""
+
+        async def success_task():
+            return True
+
+        task = fire_and_forget(success_task(), name="test")
+        await task
+
+        assert get_alert_stats()["sent"] == 1
+
+        reset_alert_stats()
+        stats = get_alert_stats()
+        assert stats["sent"] == 0
+        assert stats["failed"] == 0
 
 
 class TestVulnerableEndpointDetector:

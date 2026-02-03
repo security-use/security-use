@@ -83,7 +83,13 @@ from .endpoint_analyzer import (
     VulnerableEndpointDetector,
     detect_vulnerable_endpoints,
 )
-from .middleware import FlaskSecurityMiddleware, SecurityMiddleware
+from .middleware import (
+    FlaskSecurityMiddleware,
+    SecurityMiddleware,
+    fire_and_forget,
+    get_alert_stats,
+    reset_alert_stats,
+)
 from .models import (
     ActionTaken,
     AlertPayload,
@@ -111,6 +117,10 @@ __all__ = [
     "CircuitBreaker",
     "CircuitState",
     "CircuitStats",
+    # Async alert utilities
+    "fire_and_forget",
+    "get_alert_stats",
+    "reset_alert_stats",
     # Endpoint Analysis
     "VulnerableEndpointDetector",
     "detect_vulnerable_endpoints",
