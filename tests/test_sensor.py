@@ -25,6 +25,9 @@ from security_use.sensor import (
     AnalysisResult,
     detect_vulnerable_endpoints,
     get_alert_queue,
+    CircuitBreaker,
+    CircuitState,
+    CircuitStats,
 )
 
 
@@ -769,7 +772,7 @@ class TestDashboardAlerter:
         assert finding["finding_type"] == "attack"
         assert finding["category"] == "runtime"
         assert finding["severity"] == "HIGH"
-        assert "sql_injection" in finding["title"].lower()
+        assert "sql injection" in finding["title"].lower()
         assert finding["metadata"]["action_taken"] == "blocked"
 
     def test_get_recommendation(self, alerter):
@@ -824,6 +827,165 @@ class TestDashboardAlerter:
 
             assert result is True
             mock_client.post.assert_called_once()
+
+
+class TestCircuitBreaker:
+    """Tests for CircuitBreaker."""
+
+    def test_circuit_breaker_opens_after_failures(self):
+        """Circuit should open after threshold failures."""
+        breaker = CircuitBreaker(failure_threshold=3, reset_timeout=60)
+
+        assert breaker.state == CircuitState.CLOSED
+        assert breaker.allow_request() is True
+
+        # Simulate failures
+        breaker.record_failure()
+        breaker.record_failure()
+        assert breaker.state == CircuitState.CLOSED  # Not yet
+
+        breaker.record_failure()
+        assert breaker.state == CircuitState.OPEN  # Now open
+        assert breaker.allow_request() is False
+
+    def test_circuit_breaker_half_open_after_timeout(self):
+        """Circuit should go half-open after timeout."""
+        import time
+
+        breaker = CircuitBreaker(failure_threshold=2, reset_timeout=0.1)
+
+        breaker.record_failure()
+        breaker.record_failure()
+        assert breaker.state == CircuitState.OPEN
+
+        time.sleep(0.15)
+
+        # Should transition to half-open on next check
+        assert breaker.allow_request() is True
+        assert breaker.state == CircuitState.HALF_OPEN
+
+    def test_circuit_breaker_closes_on_success(self):
+        """Circuit should close after half-open success."""
+        import time
+
+        breaker = CircuitBreaker(failure_threshold=2, reset_timeout=0.1)
+
+        breaker.record_failure()
+        breaker.record_failure()
+
+        time.sleep(0.15)
+        breaker.allow_request()  # Transition to half-open
+
+        breaker.record_success()
+        assert breaker.state == CircuitState.CLOSED
+
+    def test_circuit_breaker_reopens_on_half_open_failure(self):
+        """Circuit should reopen if half-open test fails."""
+        import time
+
+        breaker = CircuitBreaker(failure_threshold=2, reset_timeout=0.1)
+
+        breaker.record_failure()
+        breaker.record_failure()
+
+        time.sleep(0.15)
+        breaker.allow_request()  # Transition to half-open
+
+        breaker.record_failure()
+        assert breaker.state == CircuitState.OPEN
+
+    def test_circuit_breaker_success_resets_failure_count(self):
+        """Success should reset failure count."""
+        breaker = CircuitBreaker(failure_threshold=3)
+
+        breaker.record_failure()
+        breaker.record_failure()
+        breaker.record_success()  # Reset
+
+        breaker.record_failure()
+        breaker.record_failure()
+
+        # Still closed because success reset the count
+        assert breaker.state == CircuitState.CLOSED
+
+    def test_circuit_breaker_stats(self):
+        """Test circuit breaker statistics."""
+        breaker = CircuitBreaker(failure_threshold=2, name="test_breaker")
+
+        breaker.record_success()
+        breaker.record_failure()
+        breaker.record_failure()  # Opens circuit
+
+        stats = breaker.stats
+        assert stats.state == CircuitState.OPEN
+        assert stats.failure_count == 2
+        assert stats.success_count == 1
+        assert stats.times_opened == 1
+
+    def test_circuit_breaker_reset(self):
+        """Test manual circuit breaker reset."""
+        breaker = CircuitBreaker(failure_threshold=2)
+
+        breaker.record_failure()
+        breaker.record_failure()
+        assert breaker.state == CircuitState.OPEN
+
+        breaker.reset()
+        assert breaker.state == CircuitState.CLOSED
+        assert breaker.allow_request() is True
+
+
+class TestDashboardAlerterCircuitBreaker:
+    """Tests for DashboardAlerter circuit breaker integration."""
+
+    @pytest.fixture
+    def sample_event(self):
+        """Create a sample security event."""
+        return SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            timestamp=datetime.utcnow(),
+            source_ip="192.168.1.100",
+            path="/api/users",
+            method="POST",
+            matched_pattern=MatchedPattern(
+                pattern="' OR 1=1",
+                location="body",
+                field="username",
+            ),
+            description="SQL injection attempt",
+        )
+
+    @pytest.mark.asyncio
+    async def test_alerter_skips_when_circuit_open(self, sample_event):
+        """Alerter should not make network calls when circuit is open."""
+        alerter = DashboardAlerter(
+            api_key="test",
+            circuit_failure_threshold=1,
+        )
+
+        # Force circuit open
+        alerter._circuit_breaker.record_failure()
+        assert alerter._circuit_breaker.state == CircuitState.OPEN
+
+        # Mock httpx to verify no calls are made
+        with patch("httpx.AsyncClient") as mock_client:
+            result = await alerter.send_alert(sample_event, ActionTaken.BLOCKED)
+
+            assert result is False
+            mock_client.assert_not_called()  # No network call made
+
+    def test_alerter_circuit_breaker_stats(self):
+        """Test that circuit breaker stats are accessible."""
+        alerter = DashboardAlerter(
+            api_key="test",
+            circuit_failure_threshold=5,
+            circuit_reset_timeout=30.0,
+        )
+
+        stats = alerter.circuit_breaker_stats
+        assert stats.state == CircuitState.CLOSED
+        assert stats.failure_count == 0
 
 
 class TestVulnerableEndpointDetector:

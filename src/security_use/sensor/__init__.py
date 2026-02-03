@@ -73,6 +73,7 @@ Endpoint analysis:
 """
 
 from .alert_queue import AlertQueue, get_alert_queue
+from .circuit_breaker import CircuitBreaker, CircuitState, CircuitStats
 from .config import SensorConfig, create_config
 from .dashboard_alerter import DashboardAlerter
 from .detector import AttackDetector, RateLimiter
@@ -106,6 +107,10 @@ __all__ = [
     "get_alert_queue",
     "DashboardAlerter",
     "WebhookAlerter",
+    # Circuit Breaker
+    "CircuitBreaker",
+    "CircuitState",
+    "CircuitStats",
     # Endpoint Analysis
     "VulnerableEndpointDetector",
     "detect_vulnerable_endpoints",

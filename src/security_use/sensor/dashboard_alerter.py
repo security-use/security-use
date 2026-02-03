@@ -1,6 +1,5 @@
 """Dashboard alerter for sending runtime security alerts."""
 
-import json
 import logging
 import os
 from datetime import datetime
@@ -9,6 +8,7 @@ from urllib.parse import urljoin
 
 import httpx
 
+from .circuit_breaker import CircuitBreaker, CircuitStats
 from .models import ActionTaken, AlertPayload, SecurityEvent
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,8 @@ class DashboardAlerter:
         dashboard_url: Optional[str] = None,
         timeout: float = 10.0,
         retry_count: int = 3,
+        circuit_failure_threshold: int = 5,
+        circuit_reset_timeout: float = 60.0,
     ):
         """Initialize the dashboard alerter.
 
@@ -49,6 +51,8 @@ class DashboardAlerter:
                           SecurityUse cloud.
             timeout: Request timeout in seconds.
             retry_count: Number of retry attempts on failure.
+            circuit_failure_threshold: Consecutive failures before opening circuit.
+            circuit_reset_timeout: Seconds to wait before trying again (half-open).
         """
         self.api_key = api_key or os.environ.get("SECURITY_USE_API_KEY")
         self.dashboard_url = dashboard_url or os.environ.get(
@@ -56,6 +60,13 @@ class DashboardAlerter:
         )
         self.timeout = timeout
         self.retry_count = retry_count
+
+        # Initialize circuit breaker
+        self._circuit_breaker = CircuitBreaker(
+            failure_threshold=circuit_failure_threshold,
+            reset_timeout=circuit_reset_timeout,
+            name="dashboard_alerter",
+        )
 
         if not self.api_key:
             logger.warning(
@@ -155,6 +166,13 @@ class DashboardAlerter:
             logger.debug("Dashboard alerter not configured, skipping alert")
             return False
 
+        # Check circuit breaker first
+        if not self._circuit_breaker.allow_request():
+            logger.debug(
+                f"Circuit breaker open, skipping alert: {event.event_type.value}"
+            )
+            return False
+
         payload = self._build_payload(event, action)
         url = urljoin(self.dashboard_url + "/", "runtime-alert")
 
@@ -169,9 +187,11 @@ class DashboardAlerter:
                     response = await client.post(url, json=payload, headers=headers)
 
                     if response.status_code in (200, 201, 202):
+                        self._circuit_breaker.record_success()
                         logger.info(f"Alert sent to dashboard: {event.event_type.value}")
                         return True
                     elif response.status_code == 401:
+                        # Auth error, don't count as circuit failure
                         logger.error("Invalid API key for dashboard alerting")
                         return False
                     elif response.status_code == 404:
@@ -184,11 +204,13 @@ class DashboardAlerter:
                             f"{response.status_code} - {response.text}"
                         )
 
-            except httpx.TimeoutException:
-                logger.warning(f"Dashboard alert timeout (attempt {attempt + 1})")
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                logger.warning(f"Dashboard alert timeout (attempt {attempt + 1}): {e}")
             except Exception as e:
                 logger.error(f"Dashboard alert error (attempt {attempt + 1}): {e}")
 
+        # All attempts failed
+        self._circuit_breaker.record_failure()
         return False
 
     def send_alert_sync(
@@ -209,6 +231,13 @@ class DashboardAlerter:
             logger.debug("Dashboard alerter not configured, skipping alert")
             return False
 
+        # Check circuit breaker first
+        if not self._circuit_breaker.allow_request():
+            logger.debug(
+                f"Circuit breaker open, skipping alert: {event.event_type.value}"
+            )
+            return False
+
         payload = self._build_payload(event, action)
         url = urljoin(self.dashboard_url + "/", "runtime-alert")
 
@@ -223,9 +252,11 @@ class DashboardAlerter:
                     response = client.post(url, json=payload, headers=headers)
 
                     if response.status_code in (200, 201, 202):
+                        self._circuit_breaker.record_success()
                         logger.info(f"Alert sent to dashboard: {event.event_type.value}")
                         return True
                     elif response.status_code == 401:
+                        # Auth error, don't count as circuit failure
                         logger.error("Invalid API key for dashboard alerting")
                         return False
                     elif response.status_code == 404:
@@ -238,9 +269,16 @@ class DashboardAlerter:
                             f"{response.status_code} - {response.text}"
                         )
 
-            except httpx.TimeoutException:
-                logger.warning(f"Dashboard alert timeout (attempt {attempt + 1})")
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                logger.warning(f"Dashboard alert timeout (attempt {attempt + 1}): {e}")
             except Exception as e:
                 logger.error(f"Dashboard alert error (attempt {attempt + 1}): {e}")
 
+        # All attempts failed
+        self._circuit_breaker.record_failure()
         return False
+
+    @property
+    def circuit_breaker_stats(self) -> CircuitStats:
+        """Get circuit breaker statistics."""
+        return self._circuit_breaker.stats
