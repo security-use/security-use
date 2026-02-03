@@ -72,6 +72,7 @@ Endpoint analysis:
         print(f"{endpoint.path} - risk: {endpoint.risk_score}")
 """
 
+from .alert_queue import AlertQueue, get_alert_queue
 from .config import SensorConfig, create_config
 from .dashboard_alerter import DashboardAlerter
 from .detector import AttackDetector, RateLimiter
@@ -101,6 +102,8 @@ __all__ = [
     "AttackDetector",
     "RateLimiter",
     # Alerting
+    "AlertQueue",
+    "get_alert_queue",
     "DashboardAlerter",
     "WebhookAlerter",
     # Endpoint Analysis

@@ -7,6 +7,7 @@ import tempfile
 import os
 
 from security_use.sensor import (
+    AlertQueue,
     AttackDetector,
     AttackType,
     RequestData,
@@ -23,6 +24,7 @@ from security_use.sensor import (
     EndpointInfo,
     AnalysisResult,
     detect_vulnerable_endpoints,
+    get_alert_queue,
 )
 
 
@@ -1063,3 +1065,163 @@ class TestAnalysisResult:
         assert len(result.vulnerable_endpoints) == 1
         assert "/api/users" in result.vulnerable_paths
         assert "sqlalchemy" in result.vulnerable_packages
+
+
+class TestAlertQueue:
+    """Tests for AlertQueue."""
+
+    @pytest.fixture
+    def sample_event(self):
+        """Create a sample security event."""
+        return SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            timestamp=datetime.utcnow(),
+            source_ip="192.168.1.100",
+            path="/api/users",
+            method="POST",
+            matched_pattern=MatchedPattern(
+                pattern="' OR 1=1",
+                location="body",
+                field="username",
+            ),
+            description="SQL injection attempt",
+        )
+
+    def test_queue_non_blocking(self, sample_event):
+        """Test that enqueueing alerts is non-blocking."""
+        import time
+
+        send_times = []
+
+        class SlowAlerter:
+            def send_alert_sync(self, event, action):
+                time.sleep(0.3)  # Simulate slow network
+                send_times.append(time.time())
+                return True
+
+        queue = AlertQueue(max_size=10, num_workers=1)
+        queue.start()
+
+        try:
+            # Enqueue should return immediately
+            start = time.time()
+            queue.enqueue(sample_event, ActionTaken.BLOCKED, SlowAlerter())
+            enqueue_time = time.time() - start
+
+            assert enqueue_time < 0.05  # Should be near-instant
+
+            # Wait for actual send
+            time.sleep(0.5)
+            assert len(send_times) == 1
+        finally:
+            queue.stop()
+
+    def test_queue_drops_when_full(self, sample_event):
+        """Test that queue drops alerts when full."""
+
+        class NeverCalledAlerter:
+            def send_alert_sync(self, event, action):
+                return True
+
+        queue = AlertQueue(max_size=2, num_workers=0)
+        queue._running = True  # Pretend started but no workers
+
+        alerter = NeverCalledAlerter()
+        assert queue.enqueue(sample_event, ActionTaken.BLOCKED, alerter) is True
+        assert queue.enqueue(sample_event, ActionTaken.BLOCKED, alerter) is True
+        assert queue.enqueue(sample_event, ActionTaken.BLOCKED, alerter) is False  # Dropped
+        assert queue.alerts_dropped == 1
+
+    def test_queue_graceful_shutdown(self, sample_event):
+        """Test that queue drains on shutdown."""
+        sent = []
+
+        class TrackingAlerter:
+            def send_alert_sync(self, event, action):
+                sent.append(event)
+                return True
+
+        queue = AlertQueue(max_size=10, num_workers=1)
+        queue.start()
+
+        alerter = TrackingAlerter()
+        for _ in range(5):
+            queue.enqueue(sample_event, ActionTaken.BLOCKED, alerter)
+
+        queue.stop(timeout=2.0)
+
+        assert len(sent) == 5  # All alerts sent before shutdown
+
+    def test_queue_stats(self, sample_event):
+        """Test queue stats property."""
+        queue = AlertQueue(max_size=10, num_workers=1)
+        queue.start()
+
+        stats = queue.stats
+        assert stats["pending"] == 0
+        assert stats["sent"] == 0
+        assert stats["failed"] == 0
+        assert stats["dropped"] == 0
+
+        queue.stop()
+
+    def test_queue_pending_count(self, sample_event):
+        """Test pending_count property."""
+        class NeverCalledAlerter:
+            def send_alert_sync(self, event, action):
+                return True
+
+        queue = AlertQueue(max_size=10, num_workers=0)
+        queue._running = True
+
+        alerter = NeverCalledAlerter()
+        queue.enqueue(sample_event, ActionTaken.BLOCKED, alerter)
+        queue.enqueue(sample_event, ActionTaken.BLOCKED, alerter)
+
+        assert queue.pending_count == 2
+
+    def test_get_alert_queue_singleton(self):
+        """Test that get_alert_queue returns a singleton."""
+        queue1 = get_alert_queue()
+        queue2 = get_alert_queue()
+        assert queue1 is queue2
+
+    def test_queue_handles_alerter_failure(self, sample_event):
+        """Test that queue handles alerter failures gracefully."""
+        import time
+
+        class FailingAlerter:
+            def send_alert_sync(self, event, action):
+                return False
+
+        queue = AlertQueue(max_size=10, num_workers=1)
+        queue.start()
+
+        try:
+            queue.enqueue(sample_event, ActionTaken.BLOCKED, FailingAlerter())
+            time.sleep(0.2)  # Wait for processing
+
+            assert queue.alerts_failed == 1
+            assert queue.alerts_sent == 0
+        finally:
+            queue.stop()
+
+    def test_queue_handles_alerter_exception(self, sample_event):
+        """Test that queue handles alerter exceptions gracefully."""
+        import time
+
+        class ExceptionAlerter:
+            def send_alert_sync(self, event, action):
+                raise RuntimeError("Connection failed")
+
+        queue = AlertQueue(max_size=10, num_workers=1)
+        queue.start()
+
+        try:
+            queue.enqueue(sample_event, ActionTaken.BLOCKED, ExceptionAlerter())
+            time.sleep(0.2)  # Wait for processing
+
+            assert queue.alerts_failed == 1
+        finally:
+            queue.stop()

@@ -40,6 +40,11 @@ class SensorConfig:
     rate_limit_cleanup_interval: int = 300  # seconds between cleanup runs
     rate_limit_max_ips: int = 100000  # max tracked IPs to prevent memory leak
 
+    # Alert queue settings (for non-blocking alert delivery in Flask)
+    alert_queue_size: int = 1000  # max queued alerts
+    alert_queue_workers: int = 2  # number of worker threads
+    alert_queue_drain_timeout: float = 5.0  # seconds to wait on shutdown
+
     # Behavior
     block_on_detection: bool = True  # Return 403 on attack detection (default True now)
     excluded_paths: list[str] = field(default_factory=list)  # Paths to skip
@@ -79,6 +84,9 @@ class SensorConfig:
             rate_limit_window=data.get("rate_limit_window", 60),
             rate_limit_cleanup_interval=data.get("rate_limit_cleanup_interval", 300),
             rate_limit_max_ips=data.get("rate_limit_max_ips", 100000),
+            alert_queue_size=data.get("alert_queue_size", 1000),
+            alert_queue_workers=data.get("alert_queue_workers", 2),
+            alert_queue_drain_timeout=data.get("alert_queue_drain_timeout", 5.0),
             block_on_detection=data.get("block_on_detection", True),
             excluded_paths=data.get("excluded_paths", []),
             watch_paths=data.get("watch_paths"),
@@ -103,6 +111,9 @@ class SensorConfig:
             "rate_limit_window": self.rate_limit_window,
             "rate_limit_cleanup_interval": self.rate_limit_cleanup_interval,
             "rate_limit_max_ips": self.rate_limit_max_ips,
+            "alert_queue_size": self.alert_queue_size,
+            "alert_queue_workers": self.alert_queue_workers,
+            "alert_queue_drain_timeout": self.alert_queue_drain_timeout,
             "block_on_detection": self.block_on_detection,
             "excluded_paths": self.excluded_paths,
             "watch_paths": self.watch_paths,

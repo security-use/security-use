@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import Any, Callable, Optional
 from urllib.parse import parse_qs
 
+from .alert_queue import get_alert_queue
 from .config import SensorConfig, create_config
 from .dashboard_alerter import DashboardAlerter
 from .detector import AttackDetector
@@ -364,6 +365,9 @@ class FlaskSecurityMiddleware:
                 headers=self.config.webhook_headers,
             )
 
+        # Get shared alert queue for non-blocking alert delivery
+        self._alert_queue = get_alert_queue()
+
         # Log configuration
         if self.config.watch_paths:
             logger.info(f"FlaskSecurityMiddleware monitoring {len(self.config.watch_paths)} paths")
@@ -408,12 +412,12 @@ class FlaskSecurityMiddleware:
                 else ActionTaken.LOGGED
             )
 
-            # Send alerts synchronously
+            # Queue alerts for background sending (non-blocking)
             for event in events:
                 if self.dashboard_alerter:
-                    self.dashboard_alerter.send_alert_sync(event, action)
+                    self._alert_queue.enqueue(event, action, self.dashboard_alerter)
                 if self.webhook_alerter:
-                    self.webhook_alerter.send_alert_sync(event, action)
+                    self._alert_queue.enqueue(event, action, self.webhook_alerter)
 
             if self.config.block_on_detection:
                 # Return 403 Forbidden
