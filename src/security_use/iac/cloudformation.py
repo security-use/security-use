@@ -44,15 +44,23 @@ CloudFormationLoader.add_constructor("!Equals", lambda l, n: _construct_cfn_tag(
 CloudFormationLoader.add_constructor("!And", lambda l, n: _construct_cfn_tag(l, "And", n))
 CloudFormationLoader.add_constructor("!Or", lambda l, n: _construct_cfn_tag(l, "Or", n))
 CloudFormationLoader.add_constructor("!Not", lambda l, n: _construct_cfn_tag(l, "Not", n))
-CloudFormationLoader.add_constructor("!Condition", lambda l, n: _construct_cfn_tag(l, "Condition", n))
-CloudFormationLoader.add_constructor("!FindInMap", lambda l, n: _construct_cfn_tag(l, "FindInMap", n))
+CloudFormationLoader.add_constructor(
+    "!Condition", lambda l, n: _construct_cfn_tag(l, "Condition", n)
+)
+CloudFormationLoader.add_constructor(
+    "!FindInMap", lambda l, n: _construct_cfn_tag(l, "FindInMap", n)
+)
 CloudFormationLoader.add_constructor("!Base64", lambda l, n: _construct_cfn_tag(l, "Base64", n))
 CloudFormationLoader.add_constructor("!Cidr", lambda l, n: _construct_cfn_tag(l, "Cidr", n))
 CloudFormationLoader.add_constructor("!GetAZs", lambda l, n: _construct_cfn_tag(l, "GetAZs", n))
-CloudFormationLoader.add_constructor("!ImportValue", lambda l, n: _construct_cfn_tag(l, "ImportValue", n))
+CloudFormationLoader.add_constructor(
+    "!ImportValue", lambda l, n: _construct_cfn_tag(l, "ImportValue", n)
+)
 CloudFormationLoader.add_constructor("!Select", lambda l, n: _construct_cfn_tag(l, "Select", n))
 CloudFormationLoader.add_constructor("!Split", lambda l, n: _construct_cfn_tag(l, "Split", n))
-CloudFormationLoader.add_constructor("!Transform", lambda l, n: _construct_cfn_tag(l, "Transform", n))
+CloudFormationLoader.add_constructor(
+    "!Transform", lambda l, n: _construct_cfn_tag(l, "Transform", n)
+)
 
 
 class CloudFormationParser(IaCParser):
@@ -143,7 +151,7 @@ class CloudFormationParser(IaCParser):
         lines = content.split("\n")
         for i, line in enumerate(lines, start=1):
             # Match YAML style: "ResourceName:" at start of line
-            if re.match(rf'^\s*{re.escape(resource_name)}\s*:', line):
+            if re.match(rf"^\s*{re.escape(resource_name)}\s*:", line):
                 return i
             # Match JSON style: "ResourceName": {
             if re.search(rf'"{re.escape(resource_name)}"\s*:\s*\{{', line):
@@ -169,9 +177,7 @@ class SAMParser(CloudFormationParser):
             transform = template["Transform"]
             if isinstance(transform, str) and "AWS::Serverless" in transform:
                 return True
-            if isinstance(transform, list) and any(
-                "AWS::Serverless" in t for t in transform
-            ):
+            if isinstance(transform, list) and any("AWS::Serverless" in t for t in transform):
                 return True
 
         # Fall back to CloudFormation check

@@ -81,6 +81,7 @@ class DependencyScanner:
         """Lazy-load the OSV client."""
         if self._osv_client is None:
             from security_use.osv_client import OSVClient
+
             self._osv_client = OSVClient()
         return self._osv_client
 
@@ -150,9 +151,7 @@ class DependencyScanner:
 
         return parser.parse(content)
 
-    def check_vulnerabilities(
-        self, dependencies: list[Dependency]
-    ) -> list[Vulnerability]:
+    def check_vulnerabilities(self, dependencies: list[Dependency]) -> list[Vulnerability]:
         """Check dependencies against vulnerability databases.
 
         Args:
@@ -203,9 +202,19 @@ class DependencyScanner:
         files = []
         # Directories to skip (contain many nested dependencies we don't want to scan)
         skip_dirs = {
-            "node_modules", ".git", ".venv", "venv", "__pycache__",
-            ".tox", ".pytest_cache", "dist", "build", ".eggs",
-            "target", ".gradle", ".m2"
+            "node_modules",
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".tox",
+            ".pytest_cache",
+            "dist",
+            "build",
+            ".eggs",
+            "target",
+            ".gradle",
+            ".m2",
         }
 
         def search_dir(path: Path, depth: int) -> None:
@@ -216,7 +225,11 @@ class DependencyScanner:
                 for item in path.iterdir():
                     if item.is_file() and item.name in self.DEPENDENCY_FILES:
                         files.append(item)
-                    elif item.is_dir() and not item.name.startswith(".") and item.name not in skip_dirs:
+                    elif (
+                        item.is_dir()
+                        and not item.name.startswith(".")
+                        and item.name not in skip_dirs
+                    ):
                         search_dir(item, depth + 1)
             except PermissionError:
                 pass
@@ -237,8 +250,7 @@ class DependencyScanner:
 
         for parser_class in self.PARSERS:
             if any(
-                supported.lower() in filename
-                for supported in parser_class.supported_filenames()
+                supported.lower() in filename for supported in parser_class.supported_filenames()
             ):
                 return parser_class()
 

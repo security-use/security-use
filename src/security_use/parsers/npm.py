@@ -107,12 +107,12 @@ class NpmParser(DependencyParser):
 
         # Extract version from common patterns
         # ^1.2.3, ~1.2.3, >=1.2.3, >1.2.3, =1.2.3, 1.2.3
-        match = re.match(r'^[\^~>=<]*(\d+\.\d+\.\d+(?:-[\w.]+)?)', version_spec)
+        match = re.match(r"^[\^~>=<]*(\d+\.\d+\.\d+(?:-[\w.]+)?)", version_spec)
         if match:
             return match.group(1)
 
         # Handle version ranges like "1.2.3 - 2.0.0" - use the lower bound
-        range_match = re.match(r'^(\d+\.\d+\.\d+)\s*-', version_spec)
+        range_match = re.match(r"^(\d+\.\d+\.\d+)\s*-", version_spec)
         if range_match:
             return range_match.group(1)
 

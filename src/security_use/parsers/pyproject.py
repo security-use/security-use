@@ -64,26 +64,18 @@ class PyProjectParser(DependencyParser):
         poetry = data.get("tool", {}).get("poetry", {})
 
         # Main dependencies
-        dependencies.extend(
-            self._parse_poetry_deps(poetry.get("dependencies", {}))
-        )
+        dependencies.extend(self._parse_poetry_deps(poetry.get("dependencies", {})))
 
         # Dev dependencies (old format)
-        dependencies.extend(
-            self._parse_poetry_deps(poetry.get("dev-dependencies", {}))
-        )
+        dependencies.extend(self._parse_poetry_deps(poetry.get("dev-dependencies", {})))
 
         # Group dependencies (new format)
         for group in poetry.get("group", {}).values():
-            dependencies.extend(
-                self._parse_poetry_deps(group.get("dependencies", {}))
-            )
+            dependencies.extend(self._parse_poetry_deps(group.get("dependencies", {})))
 
         return dependencies
 
-    def _parse_poetry_deps(
-        self, deps: dict[str, Any]
-    ) -> list[Dependency]:
+    def _parse_poetry_deps(self, deps: dict[str, Any]) -> list[Dependency]:
         """Parse Poetry dependencies dict."""
         dependencies = []
 

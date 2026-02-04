@@ -58,9 +58,7 @@ class GCSBucketEncryptionRule(Rule):
         "Cloud Storage bucket does not use customer-managed encryption keys (CMEK). "
         "While GCS encrypts data by default, CMEK provides additional control."
     )
-    REMEDIATION = (
-        "Configure a Cloud KMS key for bucket encryption."
-    )
+    REMEDIATION = "Configure a Cloud KMS key for bucket encryption."
     RESOURCE_TYPES = ["google_storage_bucket"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -72,9 +70,9 @@ class GCSBucketEncryptionRule(Rule):
 
         fix_code = None
         if not has_cmek:
-            fix_code = '''encryption {
+            fix_code = """encryption {
   default_kms_key_name = "projects/PROJECT/locations/LOCATION/keyRings/KEYRING/cryptoKeys/KEY"
-}'''
+}"""
 
         return self._create_result(has_cmek, resource, fix_code)
 
@@ -90,8 +88,7 @@ class GCPFirewallOpenIngressRule(Rule):
         "This exposes services to the entire internet."
     )
     REMEDIATION = (
-        "Restrict source_ranges to specific IP ranges. "
-        "Avoid using 0.0.0.0/0 as the source."
+        "Restrict source_ranges to specific IP ranges. Avoid using 0.0.0.0/0 as the source."
     )
     RESOURCE_TYPES = ["google_compute_firewall"]
 
@@ -141,9 +138,7 @@ class GCPCloudSQLEncryptionRule(Rule):
         "Cloud SQL instance does not use customer-managed encryption keys (CMEK). "
         "While Cloud SQL encrypts data by default, CMEK provides additional control."
     )
-    REMEDIATION = (
-        "Configure a Cloud KMS key for Cloud SQL encryption."
-    )
+    REMEDIATION = "Configure a Cloud KMS key for Cloud SQL encryption."
     RESOURCE_TYPES = ["google_sql_database_instance"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -173,9 +168,7 @@ class GCPKMSKeyRotationRule(Rule):
         "Cloud KMS key does not have automatic rotation configured. "
         "Regular key rotation limits the impact of key compromise."
     )
-    REMEDIATION = (
-        "Configure automatic key rotation with a rotation period of 90 days or less."
-    )
+    REMEDIATION = "Configure automatic key rotation with a rotation period of 90 days or less."
     RESOURCE_TYPES = ["google_kms_crypto_key"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -201,15 +194,15 @@ class GCPServiceAccountKeyRule(Rule):
         "Service account has user-managed keys. User-managed keys are a security "
         "risk as they can be leaked or stolen. Prefer using attached service accounts."
     )
-    REMEDIATION = (
-        "Use attached service accounts or workload identity instead of user-managed keys."
-    )
+    REMEDIATION = "Use attached service accounts or workload identity instead of user-managed keys."
     RESOURCE_TYPES = ["google_service_account_key"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
         """Flag user-managed service account keys."""
         # Any google_service_account_key resource is a user-managed key
-        fix_code = "# Remove user-managed keys and use workload identity or attached service accounts"
+        fix_code = (
+            "# Remove user-managed keys and use workload identity or attached service accounts"
+        )
 
         return self._create_result(False, resource, fix_code)
 
@@ -224,9 +217,7 @@ class GCPAuditLoggingRule(Rule):
         "Audit logging is not enabled for all services. "
         "Audit logs are essential for security monitoring and compliance."
     )
-    REMEDIATION = (
-        "Enable audit logging for all services using google_project_iam_audit_config."
-    )
+    REMEDIATION = "Enable audit logging for all services using google_project_iam_audit_config."
     RESOURCE_TYPES = ["google_project_iam_audit_config"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -239,7 +230,7 @@ class GCPAuditLoggingRule(Rule):
             if isinstance(audit_log_configs, list) and len(audit_log_configs) > 0:
                 return self._create_result(True, resource)
 
-        fix_code = '''resource "google_project_iam_audit_config" "all" {
+        fix_code = """resource "google_project_iam_audit_config" "all" {
   service = "allServices"
   audit_log_config {
     log_type = "ADMIN_READ"
@@ -250,6 +241,6 @@ class GCPAuditLoggingRule(Rule):
   audit_log_config {
     log_type = "DATA_WRITE"
   }
-}'''
+}"""
 
         return self._create_result(False, resource, fix_code)

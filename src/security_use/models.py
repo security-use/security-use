@@ -107,22 +107,16 @@ class ScanResult:
     @property
     def critical_count(self) -> int:
         """Count of critical severity issues."""
-        return sum(
-            1
-            for v in self.vulnerabilities
-            if v.severity == Severity.CRITICAL
-        ) + sum(
-            1
-            for f in self.iac_findings
-            if f.severity == Severity.CRITICAL
+        return sum(1 for v in self.vulnerabilities if v.severity == Severity.CRITICAL) + sum(
+            1 for f in self.iac_findings if f.severity == Severity.CRITICAL
         )
 
     @property
     def high_count(self) -> int:
         """Count of high severity issues."""
-        return sum(
-            1 for v in self.vulnerabilities if v.severity == Severity.HIGH
-        ) + sum(1 for f in self.iac_findings if f.severity == Severity.HIGH)
+        return sum(1 for v in self.vulnerabilities if v.severity == Severity.HIGH) + sum(
+            1 for f in self.iac_findings if f.severity == Severity.HIGH
+        )
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""

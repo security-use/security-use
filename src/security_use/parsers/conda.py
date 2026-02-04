@@ -71,7 +71,9 @@ class CondaEnvironmentParser(DependencyParser):
     def _parse_pip_dep(self, line: str, line_num: int) -> Optional[Dependency]:
         """Parse a pip dependency line from conda environment file."""
         # Format: - package==version or - package>=version
-        match = re.match(r"^\s*-\s*(?P<name>[a-zA-Z0-9_-]+)(?P<spec>[=<>!]+(?P<version>[^\s#]+))?", line)
+        match = re.match(
+            r"^\s*-\s*(?P<name>[a-zA-Z0-9_-]+)(?P<spec>[=<>!]+(?P<version>[^\s#]+))?", line
+        )
         if match:
             name = match.group("name")
             version = match.group("version")

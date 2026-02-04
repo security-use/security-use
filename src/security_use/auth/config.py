@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 # OAuth configuration
@@ -47,6 +47,7 @@ def get_token_file() -> Path:
 @dataclass
 class AuthToken:
     """OAuth token data."""
+
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str = "Bearer"
@@ -82,6 +83,7 @@ class AuthToken:
 @dataclass
 class UserInfo:
     """Authenticated user information."""
+
     user_id: str
     email: str
     name: Optional[str] = None

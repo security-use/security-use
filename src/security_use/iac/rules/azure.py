@@ -15,9 +15,7 @@ class AzureStoragePublicAccessRule(Rule):
         "Azure Storage account allows public access. This can expose "
         "sensitive data to unauthorized users."
     )
-    REMEDIATION = (
-        "Set allow_blob_public_access to false and configure private endpoints."
-    )
+    REMEDIATION = "Set allow_blob_public_access to false and configure private endpoints."
     RESOURCE_TYPES = ["azurerm_storage_account", "Microsoft.Storage/storageAccounts"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -47,9 +45,7 @@ class AzureStorageEncryptionRule(Rule):
         "Azure Storage account does not have encryption at rest enabled. "
         "Data should be encrypted to protect sensitive information."
     )
-    REMEDIATION = (
-        "Enable blob encryption services and configure customer-managed keys."
-    )
+    REMEDIATION = "Enable blob encryption services and configure customer-managed keys."
     RESOURCE_TYPES = ["azurerm_storage_account", "Microsoft.Storage/storageAccounts"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -190,9 +186,7 @@ class AzureKeyVaultSoftDeleteRule(Rule):
         "Azure Key Vault does not have soft delete enabled. "
         "Soft delete protects against accidental deletion of secrets and keys."
     )
-    REMEDIATION = (
-        "Enable soft delete and purge protection for the Key Vault."
-    )
+    REMEDIATION = "Enable soft delete and purge protection for the Key Vault."
     RESOURCE_TYPES = ["azurerm_key_vault", "Microsoft.KeyVault/vaults"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -220,9 +214,7 @@ class AzureActivityLogRetentionRule(Rule):
         "Azure activity logs do not have sufficient retention period. "
         "Logs should be retained for at least 365 days for compliance."
     )
-    REMEDIATION = (
-        "Configure activity log retention to at least 365 days or export to storage."
-    )
+    REMEDIATION = "Configure activity log retention to at least 365 days or export to storage."
     RESOURCE_TYPES = [
         "azurerm_monitor_log_profile",
         "Microsoft.Insights/logprofiles",
@@ -238,9 +230,9 @@ class AzureActivityLogRetentionRule(Rule):
 
         fix_code = None
         if not passed:
-            fix_code = '''retention_policy {
+            fix_code = """retention_policy {
   enabled = true
   days    = 365
-}'''
+}"""
 
         return self._create_result(passed, resource, fix_code)

@@ -273,11 +273,7 @@ class SecurityMiddleware:
         events = self.detector.analyze_request(request_data)
 
         if events:
-            action = (
-                ActionTaken.BLOCKED
-                if self.config.block_on_detection
-                else ActionTaken.LOGGED
-            )
+            action = ActionTaken.BLOCKED if self.config.block_on_detection else ActionTaken.LOGGED
 
             # Send alerts asynchronously with error handling
             for event in events:
@@ -544,11 +540,7 @@ class FlaskSecurityMiddleware:
         events = self.detector.analyze_request(request_data)
 
         if events:
-            action = (
-                ActionTaken.BLOCKED
-                if self.config.block_on_detection
-                else ActionTaken.LOGGED
-            )
+            action = ActionTaken.BLOCKED if self.config.block_on_detection else ActionTaken.LOGGED
 
             # Queue alerts for background sending (non-blocking)
             for event in events:

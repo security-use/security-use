@@ -15,9 +15,7 @@ class K8sRunAsRootRule(Rule):
         "Container is configured to run as root user. Running as root "
         "increases the risk of container breakout and privilege escalation."
     )
-    REMEDIATION = (
-        "Set securityContext.runAsNonRoot to true and specify a non-root runAsUser."
-    )
+    REMEDIATION = "Set securityContext.runAsNonRoot to true and specify a non-root runAsUser."
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -62,15 +60,19 @@ class K8sRunAsRootRule(Rule):
                 runs_as_root = True
                 break
 
-            if not container_run_as_non_root and run_as_user is None and container_run_as_user is None:
+            if (
+                not container_run_as_non_root
+                and run_as_user is None
+                and container_run_as_user is None
+            ):
                 runs_as_root = True
                 break
 
         fix_code = None
         if runs_as_root:
-            fix_code = '''securityContext:
+            fix_code = """securityContext:
   runAsNonRoot: true
-  runAsUser: 1000'''
+  runAsUser: 1000"""
 
         return self._create_result(not runs_as_root, resource, fix_code)
 
@@ -106,9 +108,7 @@ class K8sPrivilegedContainerRule(Rule):
         "Container is running in privileged mode. Privileged containers have "
         "full access to the host and can escape container isolation."
     )
-    REMEDIATION = (
-        "Set securityContext.privileged to false."
-    )
+    REMEDIATION = "Set securityContext.privileged to false."
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -135,8 +135,8 @@ class K8sPrivilegedContainerRule(Rule):
 
         fix_code = None
         if is_privileged:
-            fix_code = '''securityContext:
-  privileged: false'''
+            fix_code = """securityContext:
+  privileged: false"""
 
         return self._create_result(not is_privileged, resource, fix_code)
 
@@ -162,9 +162,7 @@ class K8sResourceLimitsRule(Rule):
         "Container does not have resource limits defined. Without limits, "
         "a container can consume all available resources on the node."
     )
-    REMEDIATION = (
-        "Define resources.limits for CPU and memory."
-    )
+    REMEDIATION = "Define resources.limits for CPU and memory."
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -225,9 +223,7 @@ class K8sHostNetworkRule(Rule):
         "Pod is configured to use the host network namespace. This allows "
         "the container to access all network interfaces on the host."
     )
-    REMEDIATION = (
-        "Set hostNetwork to false unless absolutely necessary."
-    )
+    REMEDIATION = "Set hostNetwork to false unless absolutely necessary."
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -273,9 +269,7 @@ class K8sSecretsEnvVarsRule(Rule):
         "Secrets are exposed as environment variables. Environment variables "
         "can be logged or exposed through process listings. Use volume mounts instead."
     )
-    REMEDIATION = (
-        "Mount secrets as volumes instead of using envFrom with secretRef."
-    )
+    REMEDIATION = "Mount secrets as volumes instead of using envFrom with secretRef."
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -315,7 +309,7 @@ class K8sSecretsEnvVarsRule(Rule):
 
         fix_code = None
         if secrets_in_env:
-            fix_code = '''# Mount secrets as volumes instead
+            fix_code = """# Mount secrets as volumes instead
 volumeMounts:
   - name: secret-volume
     mountPath: "/etc/secrets"
@@ -323,7 +317,7 @@ volumeMounts:
 volumes:
   - name: secret-volume
     secret:
-      secretName: my-secret'''
+      secretName: my-secret"""
 
         return self._create_result(not secrets_in_env, resource, fix_code)
 
@@ -349,9 +343,7 @@ class K8sReadOnlyRootFilesystemRule(Rule):
         "Container does not have a read-only root filesystem. A read-only "
         "filesystem prevents malicious writes to the container filesystem."
     )
-    REMEDIATION = (
-        "Set securityContext.readOnlyRootFilesystem to true."
-    )
+    REMEDIATION = "Set securityContext.readOnlyRootFilesystem to true."
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -378,8 +370,8 @@ class K8sReadOnlyRootFilesystemRule(Rule):
 
         fix_code = None
         if not has_readonly:
-            fix_code = '''securityContext:
-  readOnlyRootFilesystem: true'''
+            fix_code = """securityContext:
+  readOnlyRootFilesystem: true"""
 
         return self._create_result(has_readonly, resource, fix_code)
 
@@ -405,9 +397,7 @@ class K8sNetworkPolicyRule(Rule):
         "No network policy is defined for this namespace. Without network "
         "policies, all pods can communicate with each other by default."
     )
-    REMEDIATION = (
-        "Define NetworkPolicy resources to restrict pod-to-pod communication."
-    )
+    REMEDIATION = "Define NetworkPolicy resources to restrict pod-to-pod communication."
     RESOURCE_TYPES = ["kubernetes_namespace", "Namespace"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -415,7 +405,7 @@ class K8sNetworkPolicyRule(Rule):
         # This is a best-effort check - we can't verify NetworkPolicy exists
         # from the namespace resource alone
 
-        fix_code = '''apiVersion: networking.k8s.io/v1
+        fix_code = """apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-all
@@ -423,7 +413,7 @@ spec:
   podSelector: {}
   policyTypes:
     - Ingress
-    - Egress'''
+    - Egress"""
 
         # Default to warning to encourage network policies
         return self._create_result(False, resource, fix_code)

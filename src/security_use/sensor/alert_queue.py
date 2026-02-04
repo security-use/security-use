@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 class Alerter(Protocol):
     """Protocol for alerters."""
 
-    def send_alert_sync(self, event: "SecurityEvent", action: "ActionTaken") -> bool:
-        ...
+    def send_alert_sync(self, event: "SecurityEvent", action: "ActionTaken") -> bool: ...
 
 
 @dataclass
@@ -147,9 +146,7 @@ class AlertQueue:
             return True
         except queue.Full:
             self.alerts_dropped += 1
-            logger.warning(
-                f"Alert queue full, dropping alert: {event.event_type}"
-            )
+            logger.warning(f"Alert queue full, dropping alert: {event.event_type}")
             return False
 
     def _worker_loop(self) -> None:

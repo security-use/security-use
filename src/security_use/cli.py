@@ -43,13 +43,11 @@ def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
     )
 
     filtered.vulnerabilities = [
-        v for v in result.vulnerabilities
-        if severity_order.get(v.severity, 4) <= threshold_order
+        v for v in result.vulnerabilities if severity_order.get(v.severity, 4) <= threshold_order
     ]
 
     filtered.iac_findings = [
-        f for f in result.iac_findings
-        if severity_order.get(f.severity, 4) <= threshold_order
+        f for f in result.iac_findings if severity_order.get(f.severity, 4) <= threshold_order
     ]
 
     return filtered
@@ -88,8 +86,10 @@ def _get_git_info(path: str) -> tuple[Optional[str], Optional[str], Optional[str
         # Get repo name from remote URL
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(scan_path)
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(scan_path),
         )
         repo_name = None
         if result.returncode == 0:
@@ -102,16 +102,20 @@ def _get_git_info(path: str) -> tuple[Optional[str], Optional[str], Optional[str
         # Get current branch
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(scan_path)
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(scan_path),
         )
         branch = result.stdout.strip() if result.returncode == 0 else None
 
         # Get current commit SHA
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(scan_path)
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(scan_path),
         )
         commit = result.stdout.strip() if result.returncode == 0 else None
 
@@ -172,19 +176,22 @@ def scan() -> None:
 @scan.command("deps")
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--format", "-f",
+    "--format",
+    "-f",
     type=click.Choice(["json", "table", "sarif"]),
     default="table",
     help="Output format",
 )
 @click.option(
-    "--severity", "-s",
+    "--severity",
+    "-s",
     type=click.Choice(["critical", "high", "medium", "low"]),
     default="low",
     help="Minimum severity to report",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(),
     help="Write output to file",
 )
@@ -217,9 +224,7 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
     # Exit with error code if vulnerabilities found
     if result.vulnerabilities:
         if not is_machine_format:
-            console.print(
-                f"\n[red]Found {len(result.vulnerabilities)} vulnerability(ies)[/red]"
-            )
+            console.print(f"\n[red]Found {len(result.vulnerabilities)} vulnerability(ies)[/red]")
         sys.exit(1)
     else:
         if not is_machine_format:
@@ -229,28 +234,46 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
 @scan.command("iac")
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--format", "-f",
+    "--format",
+    "-f",
     type=click.Choice(["json", "table", "sarif"]),
     default="table",
     help="Output format",
 )
 @click.option(
-    "--severity", "-s",
+    "--severity",
+    "-s",
     type=click.Choice(["critical", "high", "medium", "low"]),
     default="low",
     help="Minimum severity to report",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(),
     help="Write output to file",
 )
 @click.option(
-    "--compliance", "-c",
-    type=click.Choice(["soc2", "hipaa", "pci-dss", "nist-800-53", "cis-aws", "cis-azure", "cis-gcp", "cis-kubernetes", "iso-27001"]),
+    "--compliance",
+    "-c",
+    type=click.Choice(
+        [
+            "soc2",
+            "hipaa",
+            "pci-dss",
+            "nist-800-53",
+            "cis-aws",
+            "cis-azure",
+            "cis-gcp",
+            "cis-kubernetes",
+            "iso-27001",
+        ]
+    ),
     help="Filter by compliance framework",
 )
-def scan_iac(path: str, format: str, severity: str, output: Optional[str], compliance: Optional[str]) -> None:
+def scan_iac(
+    path: str, format: str, severity: str, output: Optional[str], compliance: Optional[str]
+) -> None:
     """Scan Infrastructure as Code for security misconfigurations.
 
     PATH is the file or directory to scan (default: current directory).
@@ -304,9 +327,7 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str], compl
     # Exit with error code if findings found
     if result.iac_findings:
         if not is_machine_format:
-            console.print(
-                f"\n[red]Found {len(result.iac_findings)} security issue(s)[/red]"
-            )
+            console.print(f"\n[red]Found {len(result.iac_findings)} security issue(s)[/red]")
         sys.exit(1)
     else:
         if not is_machine_format:
@@ -316,19 +337,22 @@ def scan_iac(path: str, format: str, severity: str, output: Optional[str], compl
 @scan.command("all")
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--format", "-f",
+    "--format",
+    "-f",
     type=click.Choice(["json", "table", "sarif"]),
     default="table",
     help="Output format",
 )
 @click.option(
-    "--severity", "-s",
+    "--severity",
+    "-s",
     type=click.Choice(["critical", "high", "medium", "low"]),
     default="low",
     help="Minimum severity to report",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(),
     help="Write output to file",
 )
@@ -442,7 +466,9 @@ def fix(path: str, dry_run: bool, deps_only: bool, iac_only: bool) -> None:
                             _fix_requirements_file(path_obj, package_fixes)
                     total_fixes += len(package_fixes)
             else:
-                console.print("[yellow]No automatic fixes available for dependency vulnerabilities[/yellow]")
+                console.print(
+                    "[yellow]No automatic fixes available for dependency vulnerabilities[/yellow]"
+                )
         else:
             console.print("[green]No dependency vulnerabilities found[/green]")
 
@@ -457,10 +483,7 @@ def fix(path: str, dry_run: bool, deps_only: bool, iac_only: bool) -> None:
             iac_fixer = IaCFixer()
 
             # Filter findings that have available fixes
-            fixable_findings = [
-                f for f in iac_result.iac_findings
-                if iac_fixer.has_fix(f.rule_id)
-            ]
+            fixable_findings = [f for f in iac_result.iac_findings if iac_fixer.has_fix(f.rule_id)]
 
             if fixable_findings:
                 # Deduplicate findings by (file_path, rule_id, resource_name)
@@ -476,7 +499,9 @@ def fix(path: str, dry_run: bool, deps_only: bool, iac_only: bool) -> None:
 
                 for finding in unique_findings:
                     console.print(f"  • [{finding.rule_id}] {finding.title}")
-                    console.print(f"    {finding.file_path}:{finding.line_number} ({finding.resource_name})")
+                    console.print(
+                        f"    {finding.file_path}:{finding.line_number} ({finding.resource_name})"
+                    )
 
                 if not dry_run:
                     console.print("\n[blue]Applying IaC fixes...[/blue]")
@@ -491,18 +516,24 @@ def fix(path: str, dry_run: bool, deps_only: bool, iac_only: bool) -> None:
                         )
 
                         if result.success:
-                            console.print(f"  [green]Fixed {finding.rule_id} in {finding.file_path}[/green]")
+                            console.print(
+                                f"  [green]Fixed {finding.rule_id} in {finding.file_path}[/green]"
+                            )
                             console.print(f"    {result.explanation}")
                             total_fixes += 1
                         else:
-                            console.print(f"  [yellow]Could not fix {finding.rule_id}: {result.error}[/yellow]")
+                            console.print(
+                                f"  [yellow]Could not fix {finding.rule_id}: {result.error}[/yellow]"
+                            )
             else:
                 console.print("[yellow]No automatic fixes available for IaC findings[/yellow]")
 
             # Report unfixable findings
             unfixable = [f for f in iac_result.iac_findings if not iac_fixer.has_fix(f.rule_id)]
             if unfixable:
-                console.print(f"\n[yellow]{len(unfixable)} IaC finding(s) require manual remediation:[/yellow]")
+                console.print(
+                    f"\n[yellow]{len(unfixable)} IaC finding(s) require manual remediation:[/yellow]"
+                )
                 for finding in unfixable:
                     console.print(f"  • [{finding.rule_id}] {finding.title}")
         else:
@@ -531,7 +562,7 @@ def _fix_requirements_file(
     for i, line in enumerate(lines):
         for package, (current, fixed) in fixes.items():
             # Match package==version pattern
-            pattern = rf'^{re.escape(package)}==({re.escape(current)})'
+            pattern = rf"^{re.escape(package)}==({re.escape(current)})"
             match = re.match(pattern, line, re.IGNORECASE)
             if match:
                 lines[i] = f"{package}=={fixed}"
@@ -556,13 +587,15 @@ def version() -> None:
 @main.command()
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--fail-on", "-f",
+    "--fail-on",
+    "-f",
     type=click.Choice(["critical", "high", "medium", "low"]),
     default="high",
     help="Minimum severity to fail on",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Choice(["sarif", "json", "table", "minimal"]),
     default="minimal",
     help="Output format",
@@ -582,7 +615,9 @@ def version() -> None:
     is_flag=True,
     help="Only scan IaC files",
 )
-def ci(path: str, fail_on: str, output: str, sarif_file: Optional[str], deps_only: bool, iac_only: bool) -> None:
+def ci(
+    path: str, fail_on: str, output: str, sarif_file: Optional[str], deps_only: bool, iac_only: bool
+) -> None:
     """Run security scan optimized for CI/CD pipelines.
 
     Designed for non-interactive CI environments with minimal output
@@ -679,7 +714,9 @@ def auth_login(no_browser: bool) -> None:
     config = AuthConfig()
 
     if config.is_authenticated:
-        console.print(f"[yellow]Already logged in as {config.user.email if config.user else 'unknown'}[/yellow]")
+        console.print(
+            f"[yellow]Already logged in as {config.user.email if config.user else 'unknown'}[/yellow]"
+        )
         console.print("Run 'security-use auth logout' first to log in as a different user.")
         return
 
@@ -691,12 +728,15 @@ def auth_login(no_browser: bool) -> None:
         device_code = oauth.request_device_code()
 
         # Show user code
-        console.print(f"\n[bold]Your authorization code:[/bold] [cyan]{device_code.user_code}[/cyan]")
-        console.print(f"\nOpen this URL to authenticate:")
+        console.print(
+            f"\n[bold]Your authorization code:[/bold] [cyan]{device_code.user_code}[/cyan]"
+        )
+        console.print("\nOpen this URL to authenticate:")
         console.print(f"[link={device_code.verification_uri}]{device_code.verification_uri}[/link]")
 
         if not no_browser:
             import webbrowser
+
             verification_url = (
                 device_code.verification_uri_complete
                 or f"{device_code.verification_uri}?user_code={device_code.user_code}"
@@ -816,13 +856,15 @@ def sbom() -> None:
 @sbom.command("generate")
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--format", "-f",
+    "--format",
+    "-f",
     type=click.Choice(["cyclonedx-json", "cyclonedx-xml", "spdx-json", "spdx-tv"]),
     default="cyclonedx-json",
     help="Output format",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(),
     help="Write output to file",
 )
@@ -869,7 +911,8 @@ def sbom_generate(path: str, format: str, output: Optional[str], include_vulns: 
 @sbom.command("enrich")
 @click.argument("sbom_file", type=click.Path(exists=True))
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(),
     help="Write enriched SBOM to file",
 )
@@ -908,19 +951,24 @@ def sbom_enrich(sbom_file: str, output: Optional[str]) -> None:
 @main.command()
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--no-middleware", is_flag=True,
+    "--no-middleware",
+    is_flag=True,
     help="Skip middleware injection",
 )
 @click.option(
-    "--no-precommit", is_flag=True,
+    "--no-precommit",
+    is_flag=True,
     help="Skip pre-commit hook setup",
 )
 @click.option(
-    "--dry-run", is_flag=True,
+    "--dry-run",
+    is_flag=True,
     help="Show what would be done without making changes",
 )
 @click.option(
-    "--yes", "-y", is_flag=True,
+    "--yes",
+    "-y",
+    is_flag=True,
     help="Skip confirmation prompts",
 )
 def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes: bool) -> None:
@@ -994,7 +1042,9 @@ def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes:
     table.add_row("IaC", ", ".join(iac_files) if iac_files else "[dim]None found[/dim]")
 
     # Existing config
-    table.add_row("Existing Config", "[green]Yes[/green]" if info.has_security_use_config else "[dim]No[/dim]")
+    table.add_row(
+        "Existing Config", "[green]Yes[/green]" if info.has_security_use_config else "[dim]No[/dim]"
+    )
     table.add_row("Pre-commit", "[green]Yes[/green]" if info.has_pre_commit else "[dim]No[/dim]")
 
     console.print(table)
@@ -1048,35 +1098,37 @@ def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes:
         console.print("[green]✅ Initialization complete![/green]")
 
     # Config result
-    if results['config']['success']:
+    if results["config"]["success"]:
         console.print(f"  [green]✓[/green] {results['config']['message']}")
-    elif results['config']['message']:
+    elif results["config"]["message"]:
         console.print(f"  [dim]○[/dim] {results['config']['message']}")
 
     # Middleware result
-    if results['middleware']['success']:
+    if results["middleware"]["success"]:
         console.print(f"  [green]✓[/green] {results['middleware']['message']}")
-    elif results['middleware']['message']:
+    elif results["middleware"]["message"]:
         console.print(f"  [dim]○[/dim] {results['middleware']['message']}")
 
     # Pre-commit result
-    if results['precommit']['success']:
+    if results["precommit"]["success"]:
         console.print(f"  [green]✓[/green] {results['precommit']['message']}")
-    elif results['precommit']['message']:
+    elif results["precommit"]["message"]:
         console.print(f"  [dim]○[/dim] {results['precommit']['message']}")
 
     # Next steps
     console.print()
-    console.print(Panel(
-        "[bold]Next Steps:[/bold]\n\n"
-        "1. [cyan]security-use auth login[/cyan]     Connect to dashboard\n"
-        "2. [cyan]security-use scan all .[/cyan]    Run your first scan\n"
-        "3. [cyan]pip install pre-commit && pre-commit install[/cyan]\n"
-        "   Enable pre-commit hooks\n\n"
-        "[dim]Dashboard: https://security-use.dev[/dim]",
-        title="🚀 Ready to go!",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            "[bold]Next Steps:[/bold]\n\n"
+            "1. [cyan]security-use auth login[/cyan]     Connect to dashboard\n"
+            "2. [cyan]security-use scan all .[/cyan]    Run your first scan\n"
+            "3. [cyan]pip install pre-commit && pre-commit install[/cyan]\n"
+            "   Enable pre-commit hooks\n\n"
+            "[dim]Dashboard: https://security-use.dev[/dim]",
+            title="🚀 Ready to go!",
+            border_style="green",
+        )
+    )
 
 
 # =============================================================================
@@ -1087,11 +1139,13 @@ def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes:
 @main.command()
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option(
-    "--project", "-p",
+    "--project",
+    "-p",
     help="Project name for the dashboard",
 )
 @click.option(
-    "--severity", "-s",
+    "--severity",
+    "-s",
     type=click.Choice(["critical", "high", "medium", "low"]),
     default="low",
     help="Minimum severity to report",
@@ -1142,27 +1196,35 @@ def sync(path: str, project: Optional[str], severity: str) -> None:
     commit = None
     try:
         import subprocess
-        branch = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, cwd=path
-        ).stdout.strip() or None
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, cwd=path
-        ).stdout.strip() or None
+
+        branch = (
+            subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=path,
+            ).stdout.strip()
+            or None
+        )
+        commit = (
+            subprocess.run(
+                ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=path
+            ).stdout.strip()
+            or None
+        )
     except Exception:
         pass
 
     # Determine project name
     project_name = project or Path(path).resolve().name
 
-    console.print(f"\n[bold]Scan Summary:[/bold]")
+    console.print("\n[bold]Scan Summary:[/bold]")
     console.print(f"  Vulnerabilities: {len(result.vulnerabilities)}")
     console.print(f"  IaC Findings: {len(result.iac_findings)}")
     console.print(f"  Files Scanned: {len(result.scanned_files)}")
 
     # Upload to dashboard
-    console.print(f"\n[blue]Uploading to dashboard...[/blue]")
+    console.print("\n[blue]Uploading to dashboard...[/blue]")
 
     try:
         client = DashboardClient(config)
@@ -1174,14 +1236,16 @@ def sync(path: str, project: Optional[str], severity: str) -> None:
             commit=commit,
         )
 
-        console.print(f"[green]Scan uploaded successfully![/green]")
+        console.print("[green]Scan uploaded successfully![/green]")
 
         if "scan_id" in response:
             console.print(f"  Scan ID: {response['scan_id']}")
         if "url" in response:
             console.print(f"\n  View results: [link={response['url']}]{response['url']}[/link]")
         elif "dashboard_url" in response:
-            console.print(f"\n  View results: [link={response['dashboard_url']}]{response['dashboard_url']}[/link]")
+            console.print(
+                f"\n  View results: [link={response['dashboard_url']}]{response['dashboard_url']}[/link]"
+            )
 
     except OAuthError as e:
         console.print(f"[red]Failed to upload: {e}[/red]")

@@ -2,7 +2,7 @@
 
 import json
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -164,7 +164,9 @@ class TableReporter(ReportGenerator):
             row = [
                 Text(finding.severity.value, style=color),
                 finding.rule_id,
-                finding.resource_name[:25] if len(finding.resource_name) > 25 else finding.resource_name,
+                finding.resource_name[:25]
+                if len(finding.resource_name) > 25
+                else finding.resource_name,
                 finding.file_path[-30:] if len(finding.file_path) > 30 else finding.file_path,
                 str(finding.line_number),
             ]
@@ -301,12 +303,8 @@ class SARIFReporter(ReportGenerator):
             "shortDescription": {"text": vuln.title},
             "fullDescription": {"text": vuln.description or vuln.title},
             "helpUri": vuln.references[0] if vuln.references else None,
-            "defaultConfiguration": {
-                "level": self._severity_to_sarif_level(vuln.severity)
-            },
-            "properties": {
-                "security-severity": str(vuln.cvss_score) if vuln.cvss_score else "0.0"
-            },
+            "defaultConfiguration": {"level": self._severity_to_sarif_level(vuln.severity)},
+            "properties": {"security-severity": str(vuln.cvss_score) if vuln.cvss_score else "0.0"},
         }
 
     def _create_vulnerability_result(self, vuln: Vulnerability) -> dict[str, Any]:
@@ -330,9 +328,7 @@ class SARIFReporter(ReportGenerator):
             "shortDescription": {"text": finding.title},
             "fullDescription": {"text": finding.description},
             "help": {"text": finding.remediation},
-            "defaultConfiguration": {
-                "level": self._severity_to_sarif_level(finding.severity)
-            },
+            "defaultConfiguration": {"level": self._severity_to_sarif_level(finding.severity)},
         }
 
     def _create_iac_result(self, finding: IaCFinding) -> dict[str, Any]:

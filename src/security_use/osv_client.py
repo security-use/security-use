@@ -248,9 +248,7 @@ class OSVClient:
                     affected_versions=affected_versions,
                     fixed_version=fixed_version,
                     cvss_score=self._get_cvss_score(vuln),
-                    references=[
-                        ref.get("url", "") for ref in vuln.get("references", [])
-                    ],
+                    references=[ref.get("url", "") for ref in vuln.get("references", [])],
                 )
             )
 
@@ -295,9 +293,7 @@ class OSVClient:
         except ValueError:
             return None
 
-    def _get_fixed_version(
-        self, vuln: dict[str, Any], package: str
-    ) -> Optional[str]:
+    def _get_fixed_version(self, vuln: dict[str, Any], package: str) -> Optional[str]:
         """Extract fixed version from vulnerability data."""
         for affected in vuln.get("affected", []):
             pkg = affected.get("package", {})
@@ -308,9 +304,7 @@ class OSVClient:
                             return event["fixed"]
         return None
 
-    def _get_affected_versions(
-        self, vuln: dict[str, Any], package: str
-    ) -> str:
+    def _get_affected_versions(self, vuln: dict[str, Any], package: str) -> str:
         """Build affected versions string from vulnerability data."""
         for affected in vuln.get("affected", []):
             pkg = affected.get("package", {})

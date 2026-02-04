@@ -36,13 +36,13 @@ class S3BucketEncryptionRule(Rule):
         fix_code = None
         if not has_encryption:
             if resource.provider == "aws":
-                fix_code = '''server_side_encryption_configuration {
+                fix_code = """server_side_encryption_configuration {
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
   }
-}'''
+}"""
 
         return self._create_result(has_encryption, resource, fix_code)
 
@@ -54,8 +54,7 @@ class S3BucketPublicAccessRule(Rule):
     TITLE = "S3 bucket with public access"
     SEVERITY = Severity.CRITICAL
     DESCRIPTION = (
-        "S3 bucket allows public access. This can lead to data exposure "
-        "and security breaches."
+        "S3 bucket allows public access. This can lead to data exposure and security breaches."
     )
     REMEDIATION = (
         "Set the bucket ACL to 'private' and enable block public access settings. "
@@ -326,13 +325,13 @@ class VPCFlowLogsRule(Rule):
         # We can't verify this from the VPC resource alone
         # Return a warning to encourage flow log configuration
 
-        fix_code = '''resource "aws_flow_log" "example" {
+        fix_code = """resource "aws_flow_log" "example" {
   vpc_id                   = aws_vpc.example.id
   traffic_type             = "ALL"
   log_destination_type     = "cloud-watch-logs"
   log_destination          = aws_cloudwatch_log_group.example.arn
   iam_role_arn             = aws_iam_role.example.arn
-}'''
+}"""
 
         # Default to warning (not passed) to encourage flow logs
         return self._create_result(False, resource, fix_code)

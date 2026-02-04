@@ -137,9 +137,7 @@ class CircuitBreaker:
                 self._state = CircuitState.CLOSED
                 self._failure_count = 0
                 self._times_closed += 1
-                logger.info(
-                    f"Circuit breaker '{self.name}' CLOSED after successful test"
-                )
+                logger.info(f"Circuit breaker '{self.name}' CLOSED after successful test")
             elif self._state == CircuitState.CLOSED:
                 # Reset failure count on success
                 self._failure_count = 0
@@ -154,9 +152,7 @@ class CircuitBreaker:
                 # Failure in half-open means service still down
                 self._state = CircuitState.OPEN
                 self._times_opened += 1
-                logger.warning(
-                    f"Circuit breaker '{self.name}' OPEN after half-open failure"
-                )
+                logger.warning(f"Circuit breaker '{self.name}' OPEN after half-open failure")
             elif self._state == CircuitState.CLOSED:
                 if self._failure_count >= self.failure_threshold:
                     self._state = CircuitState.OPEN

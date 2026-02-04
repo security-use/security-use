@@ -123,9 +123,7 @@ class VulnerableEndpointDetector:
         self._calculate_risk_scores(result)
 
         # Step 5: Extract vulnerable paths
-        result.vulnerable_paths = list(set(
-            ep.path for ep in result.vulnerable_endpoints
-        ))
+        result.vulnerable_paths = list(set(ep.path for ep in result.vulnerable_endpoints))
 
         return result
 
@@ -152,8 +150,16 @@ class VulnerableEndpointDetector:
     def _find_python_files(self, project_path: Path) -> list[Path]:
         """Find all Python files in the project."""
         skip_dirs = {
-            "node_modules", ".git", ".venv", "venv", "__pycache__",
-            ".tox", ".pytest_cache", "dist", "build", ".eggs"
+            "node_modules",
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".tox",
+            ".pytest_cache",
+            "dist",
+            "build",
+            ".eggs",
         }
 
         files = []
@@ -197,7 +203,7 @@ class VulnerableEndpointDetector:
 
         except SyntaxError:
             # Fallback to regex
-            import_pattern = r'^(?:from\s+(\w+)|import\s+(\w+))'
+            import_pattern = r"^(?:from\s+(\w+)|import\s+(\w+))"
             for match in re.finditer(import_pattern, content, re.MULTILINE):
                 pkg = match.group(1) or match.group(2)
                 if pkg:
@@ -205,9 +211,7 @@ class VulnerableEndpointDetector:
 
         return list(set(imports))
 
-    def _find_routes(
-        self, content: str, file_path: str, imports: list[str]
-    ) -> list[EndpointInfo]:
+    def _find_routes(self, content: str, file_path: str, imports: list[str]) -> list[EndpointInfo]:
         """Find route definitions in Python code."""
         endpoints = []
         lines = content.split("\n")
@@ -231,25 +235,29 @@ class VulnerableEndpointDetector:
 
                     # Detect HTTP method
                     method = "GET"
-                    method_match = re.search(r'\.(get|post|put|delete|patch|options|head)\s*\(', line, re.I)
+                    method_match = re.search(
+                        r"\.(get|post|put|delete|patch|options|head)\s*\(", line, re.I
+                    )
                     if method_match:
                         method = method_match.group(1).upper()
 
                     # Find function name (usually on next line or same line)
                     func_name = ""
                     for j in range(i, min(i + 3, len(lines))):
-                        func_match = re.search(r'(?:async\s+)?def\s+(\w+)', lines[j])
+                        func_match = re.search(r"(?:async\s+)?def\s+(\w+)", lines[j])
                         if func_match:
                             func_name = func_match.group(1)
                             break
 
-                    endpoints.append(EndpointInfo(
-                        path=path,
-                        method=method,
-                        function_name=func_name,
-                        file_path=file_path,
-                        line_number=i + 1,
-                    ))
+                    endpoints.append(
+                        EndpointInfo(
+                            path=path,
+                            method=method,
+                            function_name=func_name,
+                            file_path=file_path,
+                            line_number=i + 1,
+                        )
+                    )
 
         return endpoints
 

@@ -11,9 +11,7 @@ class YarnLockParser(DependencyParser):
 
     # Regex to match package entries in yarn.lock v1 format
     # Example: "package-name@^1.0.0":
-    PACKAGE_HEADER_RE = re.compile(
-        r'^"?(?P<name>@?[^@\s]+)@(?P<version_spec>[^":\s]+)"?:?\s*$'
-    )
+    PACKAGE_HEADER_RE = re.compile(r'^"?(?P<name>@?[^@\s]+)@(?P<version_spec>[^":\s]+)"?:?\s*$')
 
     # Regex to match resolved version
     VERSION_RE = re.compile(r'^\s+version\s+"?(?P<version>[^"\s]+)"?\s*$')

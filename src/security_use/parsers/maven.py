@@ -26,7 +26,7 @@ class MavenParser(DependencyParser):
 
         try:
             # Remove namespace for easier parsing
-            content_clean = re.sub(r'\sxmlns="[^"]+"', '', content, count=1)
+            content_clean = re.sub(r'\sxmlns="[^"]+"', "", content, count=1)
             root = ET.fromstring(content_clean)
         except ET.ParseError:
             return dependencies

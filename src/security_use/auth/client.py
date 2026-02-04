@@ -2,7 +2,6 @@
 
 import platform
 from typing import Optional
-from datetime import datetime
 
 import httpx
 
@@ -83,30 +82,38 @@ class DashboardClient:
         findings = []
 
         for vuln in result.vulnerabilities:
-            findings.append({
-                "finding_type": "vulnerability",
-                "category": "deps",
-                "severity": vuln.severity.value,
-                "title": vuln.title,
-                "description": vuln.description or "",
-                "recommendation": f"Upgrade to version {vuln.fixed_version}" if vuln.fixed_version else "No fix available",
-                "cve_id": vuln.id,  # Vulnerability ID is typically the CVE ID
-                "package_name": vuln.package,
-                "package_version": vuln.installed_version,
-                "fixed_version": vuln.fixed_version,
-            })
+            findings.append(
+                {
+                    "finding_type": "vulnerability",
+                    "category": "deps",
+                    "severity": vuln.severity.value,
+                    "title": vuln.title,
+                    "description": vuln.description or "",
+                    "recommendation": (
+                        f"Upgrade to version {vuln.fixed_version}"
+                        if vuln.fixed_version
+                        else "No fix available"
+                    ),
+                    "cve_id": vuln.id,  # Vulnerability ID is typically the CVE ID
+                    "package_name": vuln.package,
+                    "package_version": vuln.installed_version,
+                    "fixed_version": vuln.fixed_version,
+                }
+            )
 
         for finding in result.iac_findings:
-            findings.append({
-                "finding_type": "misconfiguration",
-                "category": "iac",
-                "severity": finding.severity.value,
-                "title": finding.title,
-                "description": finding.description or "",
-                "file_path": finding.file_path,
-                "line_number": finding.line_number,
-                "recommendation": finding.remediation or "",
-            })
+            findings.append(
+                {
+                    "finding_type": "misconfiguration",
+                    "category": "iac",
+                    "severity": finding.severity.value,
+                    "title": finding.title,
+                    "description": finding.description or "",
+                    "file_path": finding.file_path,
+                    "line_number": finding.line_number,
+                    "recommendation": finding.remediation or "",
+                }
+            )
 
         payload = {
             "scan_type": scan_type,
@@ -135,9 +142,7 @@ class DashboardClient:
                     )
 
                 if response.status_code == 403:
-                    raise OAuthError(
-                        "Insufficient permissions. Token lacks scan:upload scope."
-                    )
+                    raise OAuthError("Insufficient permissions. Token lacks scan:upload scope.")
 
                 if response.status_code not in (200, 201):
                     raise OAuthError(f"Failed to upload scan: {response.text}")

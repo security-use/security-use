@@ -1,7 +1,6 @@
 """Terraform HCL2 parser."""
 
 import re
-from typing import Any, Optional
 
 import hcl2
 
@@ -45,9 +44,7 @@ class TerraformParser(IaCParser):
             for resource_type, instances in resource_block.items():
                 # instances is a dict: {resource_name: config, ...}
                 for resource_name, config in instances.items():
-                    line_number = self._find_resource_line(
-                        content, resource_type, resource_name
-                    )
+                    line_number = self._find_resource_line(content, resource_type, resource_name)
 
                     resource = IaCResource(
                         resource_type=resource_type,
@@ -64,9 +61,7 @@ class TerraformParser(IaCParser):
             for data_type, instances in data_block.items():
                 # instances is a dict: {data_name: config, ...}
                 for data_name, config in instances.items():
-                    line_number = self._find_data_line(
-                        content, data_type, data_name
-                    )
+                    line_number = self._find_data_line(content, data_type, data_name)
 
                     resource = IaCResource(
                         resource_type=f"data.{data_type}",
@@ -90,16 +85,12 @@ class TerraformParser(IaCParser):
 
         return result
 
-    def _find_resource_line(
-        self, content: str, resource_type: str, resource_name: str
-    ) -> int:
+    def _find_resource_line(self, content: str, resource_type: str, resource_name: str) -> int:
         """Find the line number where a resource is defined."""
         pattern = rf'resource\s+"{re.escape(resource_type)}"\s+"{re.escape(resource_name)}"'
         return self._find_pattern_line(content, pattern)
 
-    def _find_data_line(
-        self, content: str, data_type: str, data_name: str
-    ) -> int:
+    def _find_data_line(self, content: str, data_type: str, data_name: str) -> int:
         """Find the line number where a data source is defined."""
         pattern = rf'data\s+"{re.escape(data_type)}"\s+"{re.escape(data_name)}"'
         return self._find_pattern_line(content, pattern)

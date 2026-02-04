@@ -14,6 +14,7 @@ from .config import OAUTH_CONFIG, AuthToken, UserInfo, AuthConfig
 @dataclass
 class DeviceCode:
     """Device code response from OAuth server."""
+
     device_code: str
     user_code: str
     verification_uri: str
@@ -46,6 +47,7 @@ class DeviceCode:
 
 class OAuthError(Exception):
     """OAuth authentication error."""
+
     pass
 
 
@@ -92,9 +94,7 @@ class OAuthFlow:
                 try:
                     return DeviceCode.from_dict(response.json())
                 except (ValueError, KeyError) as e:
-                    raise OAuthError(
-                        f"Invalid response from OAuth server: {e}"
-                    )
+                    raise OAuthError(f"Invalid response from OAuth server: {e}")
 
         except httpx.RequestError as e:
             raise OAuthError(f"Network error connecting to {self.auth_url}: {e}")
@@ -176,9 +176,9 @@ class OAuthFlow:
                     else:
                         raise OAuthError(f"Authorization failed: {error}")
 
-                except httpx.RequestError as e:
+                except httpx.RequestError:
                     if on_status:
-                        on_status(f"Network error, retrying...")
+                        on_status("Network error, retrying...")
                     continue
 
         raise OAuthError("Authorization timed out. Please try again.")

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from security_use.models import Severity
 from security_use.iac.base import IaCResource

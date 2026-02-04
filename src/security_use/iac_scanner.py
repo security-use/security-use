@@ -96,9 +96,7 @@ class IaCScanner:
 
         return result
 
-    def _evaluate_resources(
-        self, resources: list[IaCResource], file_path: str
-    ) -> list[IaCFinding]:
+    def _evaluate_resources(self, resources: list[IaCResource], file_path: str) -> list[IaCFinding]:
         """Evaluate security rules against resources.
 
         Args:
@@ -186,10 +184,7 @@ class IaCScanner:
 
         # Check filename patterns
         name = path.name.lower()
-        if any(
-            pattern in name
-            for pattern in ["template", "stack", "cloudformation", "cfn"]
-        ):
+        if any(pattern in name for pattern in ["template", "stack", "cloudformation", "cfn"]):
             return True
 
         # For JSON/YAML files in root, we'd need to peek at content
