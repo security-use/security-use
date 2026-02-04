@@ -189,3 +189,154 @@ class TestHelp:
         assert "--format" in result.output
         assert "--severity" in result.output
         assert "--output" in result.output
+
+
+class TestCICommand:
+    """Tests for CI command - optimized for CI/CD pipelines."""
+
+    def test_ci_help(self, runner):
+        """Test CI command help output."""
+        result = runner.invoke(main, ["ci", "--help"])
+        assert result.exit_code == 0
+        assert "--fail-on" in result.output
+        assert "--output" in result.output
+        assert "--sarif-file" in result.output
+
+    def test_ci_no_issues(self, runner, tmp_path):
+        """Test CI with clean directory - should exit 0."""
+        result = runner.invoke(main, ["ci", str(tmp_path)])
+        assert result.exit_code == 0
+
+    def test_ci_minimal_output(self, runner, tmp_path):
+        """Test CI with minimal output format."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "-o", "minimal"])
+        assert result.exit_code == 0
+        # Minimal output should be concise
+        assert len(result.output) < 200 or "✓" in result.output or "passed" in result.output.lower()
+
+    def test_ci_sarif_output(self, runner, tmp_path):
+        """Test CI with SARIF output format."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "-o", "sarif"])
+        assert result.exit_code == 0
+        # SARIF output should be valid JSON with specific keys
+        data = json.loads(result.output)
+        assert "$schema" in data or "version" in data
+
+    def test_ci_sarif_file(self, runner, tmp_path):
+        """Test CI writes SARIF to file."""
+        sarif_file = tmp_path / "results.sarif"
+        result = runner.invoke(
+            main, ["ci", str(tmp_path), "--sarif-file", str(sarif_file)]
+        )
+        assert result.exit_code == 0
+        assert sarif_file.exists()
+        # Verify SARIF content
+        data = json.loads(sarif_file.read_text())
+        assert "$schema" in data or "version" in data
+
+    def test_ci_fail_on_critical(self, runner, tmp_path):
+        """Test CI fail-on option with critical severity."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "--fail-on", "critical"])
+        # No critical issues in empty dir
+        assert result.exit_code == 0
+
+    def test_ci_fail_on_low(self, runner, tmp_path):
+        """Test CI fail-on option with low severity."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "--fail-on", "low"])
+        # No issues in empty dir
+        assert result.exit_code == 0
+
+    def test_ci_deps_only(self, runner, tmp_path):
+        """Test CI with deps-only flag."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "--deps-only"])
+        assert result.exit_code == 0
+
+    def test_ci_iac_only(self, runner, tmp_path):
+        """Test CI with iac-only flag."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "--iac-only"])
+        assert result.exit_code == 0
+
+    def test_ci_json_output(self, runner, tmp_path):
+        """Test CI with JSON output format."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "-o", "json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, dict)
+
+    def test_ci_table_output(self, runner, tmp_path):
+        """Test CI with table output format."""
+        result = runner.invoke(main, ["ci", str(tmp_path), "-o", "table"])
+        assert result.exit_code == 0
+
+
+class TestInitCommand:
+    """Tests for init command."""
+
+    def test_init_help(self, runner):
+        """Test init command help output."""
+        result = runner.invoke(main, ["init", "--help"])
+        assert result.exit_code == 0
+        assert "--no-middleware" in result.output
+        assert "--no-precommit" in result.output
+        assert "--dry-run" in result.output
+
+    def test_init_empty_dir(self, runner, tmp_path):
+        """Test init on empty directory."""
+        # Pass 'Y' as input to confirm interactive prompt
+        result = runner.invoke(main, ["init", str(tmp_path)], input="Y\n")
+        # Should succeed
+        assert result.exit_code == 0
+
+    def test_init_dry_run(self, runner, tmp_path):
+        """Test init with dry-run flag."""
+        # Create a simple FastAPI file
+        app_file = tmp_path / "main.py"
+        app_file.write_text("from fastapi import FastAPI\napp = FastAPI()")
+
+        # Dry run doesn't need input confirmation
+        result = runner.invoke(main, ["init", str(tmp_path), "--dry-run"])
+        assert result.exit_code == 0
+        assert "Dry run" in result.output or "Would" in result.output
+
+        # Verify no files were actually created
+        assert not (tmp_path / ".security-use.yaml").exists()
+
+    def test_init_creates_config(self, runner, tmp_path):
+        """Test init creates config file."""
+        # Create a simple FastAPI file
+        app_file = tmp_path / "main.py"
+        app_file.write_text("from fastapi import FastAPI\napp = FastAPI()")
+
+        # Pass 'Y' to confirm
+        result = runner.invoke(main, ["init", str(tmp_path)], input="Y\n")
+        assert result.exit_code == 0
+
+        # Should create config file
+        config_file = tmp_path / ".security-use.yaml"
+        assert config_file.exists()
+
+    def test_init_no_middleware_flag(self, runner, tmp_path):
+        """Test init with --no-middleware flag."""
+        app_file = tmp_path / "main.py"
+        original_content = "from fastapi import FastAPI\napp = FastAPI()"
+        app_file.write_text(original_content)
+
+        # Pass 'Y' to confirm
+        result = runner.invoke(main, ["init", str(tmp_path), "--no-middleware"], input="Y\n")
+        assert result.exit_code == 0
+
+        # App file should not be modified
+        assert "SecurityMiddleware" not in app_file.read_text()
+
+    def test_init_idempotent(self, runner, tmp_path):
+        """Test that running init twice is safe."""
+        app_file = tmp_path / "main.py"
+        app_file.write_text("from fastapi import FastAPI\napp = FastAPI()")
+
+        # First init
+        result1 = runner.invoke(main, ["init", str(tmp_path)], input="Y\n")
+        assert result1.exit_code == 0
+
+        # Second init should also succeed (config already exists, should skip)
+        result2 = runner.invoke(main, ["init", str(tmp_path)], input="Y\n")
+        assert result2.exit_code == 0
