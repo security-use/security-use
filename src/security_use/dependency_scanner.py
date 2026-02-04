@@ -1,8 +1,12 @@
 """Dependency scanner for detecting vulnerable packages."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from security_use.models import ScanResult, Vulnerability
+
+if TYPE_CHECKING:
+    from security_use.osv_client import OSVClient
 from security_use.parsers import (
     ComposerLockParser,
     ComposerParser,

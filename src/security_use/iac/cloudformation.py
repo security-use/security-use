@@ -36,30 +36,30 @@ def _construct_ref(loader: yaml.SafeLoader, node: yaml.Node) -> dict:
 
 # Register CloudFormation intrinsic function tags
 CloudFormationLoader.add_constructor("!Ref", _construct_ref)
-CloudFormationLoader.add_constructor("!GetAtt", lambda l, n: _construct_cfn_tag(l, "GetAtt", n))
-CloudFormationLoader.add_constructor("!Sub", lambda l, n: _construct_cfn_tag(l, "Sub", n))
-CloudFormationLoader.add_constructor("!Join", lambda l, n: _construct_cfn_tag(l, "Join", n))
-CloudFormationLoader.add_constructor("!If", lambda l, n: _construct_cfn_tag(l, "If", n))
-CloudFormationLoader.add_constructor("!Equals", lambda l, n: _construct_cfn_tag(l, "Equals", n))
-CloudFormationLoader.add_constructor("!And", lambda l, n: _construct_cfn_tag(l, "And", n))
-CloudFormationLoader.add_constructor("!Or", lambda l, n: _construct_cfn_tag(l, "Or", n))
-CloudFormationLoader.add_constructor("!Not", lambda l, n: _construct_cfn_tag(l, "Not", n))
+CloudFormationLoader.add_constructor("!GetAtt", lambda loader, node: _construct_cfn_tag(loader, "GetAtt", node))
+CloudFormationLoader.add_constructor("!Sub", lambda loader, node: _construct_cfn_tag(loader, "Sub", node))
+CloudFormationLoader.add_constructor("!Join", lambda loader, node: _construct_cfn_tag(loader, "Join", node))
+CloudFormationLoader.add_constructor("!If", lambda loader, node: _construct_cfn_tag(loader, "If", node))
+CloudFormationLoader.add_constructor("!Equals", lambda loader, node: _construct_cfn_tag(loader, "Equals", node))
+CloudFormationLoader.add_constructor("!And", lambda loader, node: _construct_cfn_tag(loader, "And", node))
+CloudFormationLoader.add_constructor("!Or", lambda loader, node: _construct_cfn_tag(loader, "Or", node))
+CloudFormationLoader.add_constructor("!Not", lambda loader, node: _construct_cfn_tag(loader, "Not", node))
 CloudFormationLoader.add_constructor(
-    "!Condition", lambda l, n: _construct_cfn_tag(l, "Condition", n)
+    "!Condition", lambda loader, node: _construct_cfn_tag(loader, "Condition", node)
 )
 CloudFormationLoader.add_constructor(
-    "!FindInMap", lambda l, n: _construct_cfn_tag(l, "FindInMap", n)
+    "!FindInMap", lambda loader, node: _construct_cfn_tag(loader, "FindInMap", node)
 )
-CloudFormationLoader.add_constructor("!Base64", lambda l, n: _construct_cfn_tag(l, "Base64", n))
-CloudFormationLoader.add_constructor("!Cidr", lambda l, n: _construct_cfn_tag(l, "Cidr", n))
-CloudFormationLoader.add_constructor("!GetAZs", lambda l, n: _construct_cfn_tag(l, "GetAZs", n))
+CloudFormationLoader.add_constructor("!Base64", lambda loader, node: _construct_cfn_tag(loader, "Base64", node))
+CloudFormationLoader.add_constructor("!Cidr", lambda loader, node: _construct_cfn_tag(loader, "Cidr", node))
+CloudFormationLoader.add_constructor("!GetAZs", lambda loader, node: _construct_cfn_tag(loader, "GetAZs", node))
 CloudFormationLoader.add_constructor(
-    "!ImportValue", lambda l, n: _construct_cfn_tag(l, "ImportValue", n)
+    "!ImportValue", lambda loader, node: _construct_cfn_tag(loader, "ImportValue", node)
 )
-CloudFormationLoader.add_constructor("!Select", lambda l, n: _construct_cfn_tag(l, "Select", n))
-CloudFormationLoader.add_constructor("!Split", lambda l, n: _construct_cfn_tag(l, "Split", n))
+CloudFormationLoader.add_constructor("!Select", lambda loader, node: _construct_cfn_tag(loader, "Select", node))
+CloudFormationLoader.add_constructor("!Split", lambda loader, node: _construct_cfn_tag(loader, "Split", node))
 CloudFormationLoader.add_constructor(
-    "!Transform", lambda l, n: _construct_cfn_tag(l, "Transform", n)
+    "!Transform", lambda loader, node: _construct_cfn_tag(loader, "Transform", node)
 )
 
 
