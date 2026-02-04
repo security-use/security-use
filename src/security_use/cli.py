@@ -427,117 +427,159 @@ def fix(path: str, dry_run: bool, deps_only: bool, iac_only: bool) -> None:
 
     PATH is the file or directory to scan and fix (default: current directory).
     """
-    from security_use.dependency_scanner import DependencyScanner
-    from security_use.fixers.iac_fixer import IaCFixer
-    from security_use.iac_scanner import IaCScanner
-
     fix_deps = not iac_only
     fix_iac = not deps_only
 
     total_fixes = 0
 
-    # Fix dependency vulnerabilities
     if fix_deps:
-        console.print(f"[blue]Scanning dependencies in {path}...[/blue]")
+        total_fixes += _fix_dependency_vulnerabilities(path, dry_run)
 
-        dep_scanner = DependencyScanner()
-        dep_result = dep_scanner.scan_path(Path(path))
-
-        if dep_result.vulnerabilities:
-            # Group vulnerabilities by package
-            package_fixes: dict[str, tuple[str, str]] = {}
-            for vuln in dep_result.vulnerabilities:
-                if vuln.fixed_version and vuln.package not in package_fixes:
-                    package_fixes[vuln.package] = (vuln.installed_version, vuln.fixed_version)
-
-            if package_fixes:
-                console.print(f"\n[bold]Found {len(package_fixes)} package(s) to update:[/bold]\n")
-
-                for package, (current, fixed) in package_fixes.items():
-                    console.print(f"  • {package}: {current} → {fixed}")
-
-                if not dry_run:
-                    console.print("\n[blue]Applying dependency fixes...[/blue]")
-                    for file_path in dep_result.scanned_files:
-                        path_obj = Path(file_path)
-                        if path_obj.suffix == ".txt" or path_obj.name == "requirements.txt":
-                            _fix_requirements_file(path_obj, package_fixes)
-                    total_fixes += len(package_fixes)
-            else:
-                console.print(
-                    "[yellow]No automatic fixes available for dependency vulnerabilities[/yellow]"
-                )
-        else:
-            console.print("[green]No dependency vulnerabilities found[/green]")
-
-    # Fix IaC misconfigurations
     if fix_iac:
-        console.print(f"\n[blue]Scanning IaC files in {path}...[/blue]")
+        total_fixes += _fix_iac_misconfigurations(path, dry_run)
 
-        iac_scanner = IaCScanner()
-        iac_result = iac_scanner.scan_path(Path(path))
+    _print_fix_summary(dry_run, total_fixes)
 
-        if iac_result.iac_findings:
-            iac_fixer = IaCFixer()
 
-            # Filter findings that have available fixes
-            fixable_findings = [f for f in iac_result.iac_findings if iac_fixer.has_fix(f.rule_id)]
+def _fix_dependency_vulnerabilities(path: str, dry_run: bool) -> int:
+    """Scan and fix dependency vulnerabilities. Returns number of fixes applied."""
+    from security_use.dependency_scanner import DependencyScanner
 
-            if fixable_findings:
-                # Deduplicate findings by (file_path, rule_id, resource_name)
-                seen_fixes: set[tuple[str, str, str]] = set()
-                unique_findings = []
-                for finding in fixable_findings:
-                    key = (finding.file_path, finding.rule_id, finding.resource_name)
-                    if key not in seen_fixes:
-                        seen_fixes.add(key)
-                        unique_findings.append(finding)
+    console.print(f"[blue]Scanning dependencies in {path}...[/blue]")
 
-                console.print(f"\n[bold]Found {len(unique_findings)} IaC issue(s) to fix:[/bold]\n")
+    dep_scanner = DependencyScanner()
+    dep_result = dep_scanner.scan_path(Path(path))
 
-                for finding in unique_findings:
-                    console.print(f"  • [{finding.rule_id}] {finding.title}")
-                    console.print(
-                        f"    {finding.file_path}:{finding.line_number} ({finding.resource_name})"
-                    )
+    if not dep_result.vulnerabilities:
+        console.print("[green]No dependency vulnerabilities found[/green]")
+        return 0
 
-                if not dry_run:
-                    console.print("\n[blue]Applying IaC fixes...[/blue]")
+    # Group vulnerabilities by package
+    package_fixes = _collect_package_fixes(dep_result.vulnerabilities)
 
-                    for finding in unique_findings:
-                        result = iac_fixer.fix_finding(
-                            file_path=finding.file_path,
-                            rule_id=finding.rule_id,
-                            resource_name=finding.resource_name,
-                            line_number=finding.line_number,
-                            auto_apply=True,
-                        )
+    if not package_fixes:
+        console.print("[yellow]No automatic fixes available for dependency vulnerabilities[/yellow]")
+        return 0
 
-                        if result.success:
-                            console.print(
-                                f"  [green]Fixed {finding.rule_id} in {finding.file_path}[/green]"
-                            )
-                            console.print(f"    {result.explanation}")
-                            total_fixes += 1
-                        else:
-                            console.print(
-                                f"  [yellow]Could not fix {finding.rule_id}: {result.error}[/yellow]"
-                            )
-            else:
-                console.print("[yellow]No automatic fixes available for IaC findings[/yellow]")
+    _display_package_fixes(package_fixes)
 
-            # Report unfixable findings
-            unfixable = [f for f in iac_result.iac_findings if not iac_fixer.has_fix(f.rule_id)]
-            if unfixable:
-                console.print(
-                    f"\n[yellow]{len(unfixable)} IaC finding(s) require manual remediation:[/yellow]"
-                )
-                for finding in unfixable:
-                    console.print(f"  • [{finding.rule_id}] {finding.title}")
+    if dry_run:
+        return 0
+
+    console.print("\n[blue]Applying dependency fixes...[/blue]")
+    for file_path in dep_result.scanned_files:
+        path_obj = Path(file_path)
+        if path_obj.suffix == ".txt" or path_obj.name == "requirements.txt":
+            _fix_requirements_file(path_obj, package_fixes)
+
+    return len(package_fixes)
+
+
+def _collect_package_fixes(vulnerabilities: list) -> dict[str, tuple[str, str]]:
+    """Collect unique package fixes from vulnerabilities."""
+    package_fixes: dict[str, tuple[str, str]] = {}
+    for vuln in vulnerabilities:
+        if vuln.fixed_version and vuln.package not in package_fixes:
+            package_fixes[vuln.package] = (vuln.installed_version, vuln.fixed_version)
+    return package_fixes
+
+
+def _display_package_fixes(package_fixes: dict[str, tuple[str, str]]) -> None:
+    """Display packages that will be updated."""
+    console.print(f"\n[bold]Found {len(package_fixes)} package(s) to update:[/bold]\n")
+    for package, (current, fixed) in package_fixes.items():
+        console.print(f"  • {package}: {current} → {fixed}")
+
+
+def _fix_iac_misconfigurations(path: str, dry_run: bool) -> int:
+    """Scan and fix IaC misconfigurations. Returns number of fixes applied."""
+    from security_use.fixers.iac_fixer import IaCFixer
+    from security_use.iac_scanner import IaCScanner
+
+    console.print(f"\n[blue]Scanning IaC files in {path}...[/blue]")
+
+    iac_scanner = IaCScanner()
+    iac_result = iac_scanner.scan_path(Path(path))
+
+    if not iac_result.iac_findings:
+        console.print("[green]No IaC misconfigurations found[/green]")
+        return 0
+
+    iac_fixer = IaCFixer()
+    unique_findings = _get_unique_fixable_findings(iac_result.iac_findings, iac_fixer)
+
+    if not unique_findings:
+        console.print("[yellow]No automatic fixes available for IaC findings[/yellow]")
+        _report_unfixable_findings(iac_result.iac_findings, iac_fixer)
+        return 0
+
+    _display_iac_findings(unique_findings)
+
+    fixes_applied = 0
+    if not dry_run:
+        fixes_applied = _apply_iac_fixes(unique_findings, iac_fixer)
+
+    _report_unfixable_findings(iac_result.iac_findings, iac_fixer)
+    return fixes_applied
+
+
+def _get_unique_fixable_findings(findings: list, iac_fixer) -> list:
+    """Get deduplicated list of findings that have available fixes."""
+    fixable = [f for f in findings if iac_fixer.has_fix(f.rule_id)]
+
+    seen: set[tuple[str, str, str]] = set()
+    unique = []
+    for finding in fixable:
+        key = (finding.file_path, finding.rule_id, finding.resource_name)
+        if key not in seen:
+            seen.add(key)
+            unique.append(finding)
+    return unique
+
+
+def _display_iac_findings(findings: list) -> None:
+    """Display IaC findings that will be fixed."""
+    console.print(f"\n[bold]Found {len(findings)} IaC issue(s) to fix:[/bold]\n")
+    for finding in findings:
+        console.print(f"  • [{finding.rule_id}] {finding.title}")
+        console.print(f"    {finding.file_path}:{finding.line_number} ({finding.resource_name})")
+
+
+def _apply_iac_fixes(findings: list, iac_fixer) -> int:
+    """Apply IaC fixes and return number of successful fixes."""
+    console.print("\n[blue]Applying IaC fixes...[/blue]")
+    fixes_applied = 0
+
+    for finding in findings:
+        result = iac_fixer.fix_finding(
+            file_path=finding.file_path,
+            rule_id=finding.rule_id,
+            resource_name=finding.resource_name,
+            line_number=finding.line_number,
+            auto_apply=True,
+        )
+
+        if result.success:
+            console.print(f"  [green]Fixed {finding.rule_id} in {finding.file_path}[/green]")
+            console.print(f"    {result.explanation}")
+            fixes_applied += 1
         else:
-            console.print("[green]No IaC misconfigurations found[/green]")
+            console.print(f"  [yellow]Could not fix {finding.rule_id}: {result.error}[/yellow]")
 
-    # Summary
+    return fixes_applied
+
+
+def _report_unfixable_findings(findings: list, iac_fixer) -> None:
+    """Report findings that require manual remediation."""
+    unfixable = [f for f in findings if not iac_fixer.has_fix(f.rule_id)]
+    if unfixable:
+        console.print(f"\n[yellow]{len(unfixable)} IaC finding(s) require manual remediation:[/yellow]")
+        for finding in unfixable:
+            console.print(f"  • [{finding.rule_id}] {finding.title}")
+
+
+def _print_fix_summary(dry_run: bool, total_fixes: int) -> None:
+    """Print summary of fix operation."""
     if dry_run:
         console.print("\n[yellow]Dry run - no changes made[/yellow]")
     elif total_fixes > 0:
