@@ -47,12 +47,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CKV_AZURE_14: App Service HTTPS enforcement
   - CKV_AZURE_3: Storage account HTTPS requirement
   - CKV_AZURE_70: Function App HTTPS enforcement
+- **New GCP IaC rules**:
+  - CKV_GCP_18: GKE private cluster configuration
+  - CKV_GCP_6: Cloud SQL SSL enforcement
+  - CKV_GCP_32: Compute instance SSH key isolation
+- **New Kubernetes IaC rules**:
+  - CKV_K8S_20: Allow privilege escalation check
+  - CKV_K8S_26: HostPath volume check
 
 ### Changed
 - Runtime sensor now has 11 attack detection categories (was 6)
-- Test suite expanded to 310 tests (was 206)
+- Test suite expanded to 320 tests (was 206)
 - Codebase formatted with ruff for consistency
 - Total AWS IaC rules: 12 (was 8)
+- Total Azure IaC rules: 9 (was 6)
+- Total GCP IaC rules: 10 (was 7)
+- Total K8s IaC rules: 9 (was 7)
+- **Total IaC rules: 40** (was 28)
 
 ### Tests
 - Added 23 compliance module tests
