@@ -292,6 +292,7 @@ class MiddlewareInjector:
 
     FASTAPI_IMPORT = "from security_use.sensor import SecurityMiddleware"
     FLASK_IMPORT = "from security_use.sensor import FlaskSecurityMiddleware"
+    DJANGO_MIDDLEWARE_CLASS = "security_use.sensor.DjangoSecurityMiddleware"
 
     FASTAPI_MIDDLEWARE = """
 # Security-Use: Runtime attack detection and protection
@@ -311,6 +312,21 @@ app.wsgi_app = FlaskSecurityMiddleware(
 )
 """
 
+    # Django instructions (settings.py modification)
+    DJANGO_INSTRUCTIONS = f"""
+# Add to MIDDLEWARE in settings.py (at the top for best protection):
+#
+# MIDDLEWARE = [
+#     '{DJANGO_MIDDLEWARE_CLASS}',  # Security-Use middleware
+#     'django.middleware.security.SecurityMiddleware',
+#     ...
+# ]
+#
+# Optional: Configure in settings.py:
+# SECURITY_USE_BLOCK_ON_DETECTION = True
+# SECURITY_USE_EXCLUDED_PATHS = ['/health/', '/metrics/']
+"""
+
     def generate_injection(self, app_file: AppFile) -> tuple[str, str]:
         """Generate import and middleware code for injection.
 
@@ -323,6 +339,9 @@ app.wsgi_app = FlaskSecurityMiddleware(
         elif app_file.framework == Framework.FLASK:
             middleware = self.FLASK_MIDDLEWARE.replace("app.", f"{app_file.app_variable}.")
             return (self.FLASK_IMPORT, middleware)
+        elif app_file.framework == Framework.DJANGO:
+            # Django uses settings.py, not direct injection
+            return ("", self.DJANGO_INSTRUCTIONS)
         else:
             raise ValueError(f"Unsupported framework: {app_file.framework}")
 
@@ -335,8 +354,12 @@ app.wsgi_app = FlaskSecurityMiddleware(
         if app_file.has_middleware:
             return (False, "SecurityMiddleware already present")
 
-        if app_file.framework not in (Framework.FASTAPI, Framework.FLASK):
+        if app_file.framework not in (Framework.FASTAPI, Framework.FLASK, Framework.DJANGO):
             return (False, f"Unsupported framework: {app_file.framework}")
+
+        # Django requires manual settings.py modification
+        if app_file.framework == Framework.DJANGO:
+            return (True, self.DJANGO_INSTRUCTIONS)
 
         try:
             content = app_file.path.read_text()

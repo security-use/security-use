@@ -619,3 +619,158 @@ class FlaskSecurityMiddleware:
             ],
         )
         return [body]
+
+
+class DjangoSecurityMiddleware:
+    """Django middleware for runtime security monitoring.
+
+    Add to MIDDLEWARE in settings.py (preferably at the top):
+
+        MIDDLEWARE = [
+            'security_use.sensor.DjangoSecurityMiddleware',
+            'django.middleware.security.SecurityMiddleware',
+            ...
+        ]
+
+    Configure via Django settings:
+
+        SECURITY_USE_BLOCK_ON_DETECTION = True  # Block detected attacks
+        SECURITY_USE_EXCLUDED_PATHS = ['/health/', '/metrics/']
+        SECURITY_USE_API_KEY = 'su_...'  # Dashboard API key
+        SECURITY_USE_WEBHOOK_URL = '...'  # Optional webhook URL
+    """
+
+    def __init__(self, get_response):
+        """Initialize Django middleware.
+
+        Args:
+            get_response: Django's get_response callable.
+        """
+        self.get_response = get_response
+
+        # Import Django settings lazily
+        from django.conf import settings
+
+        # Build config from Django settings
+        self.config = SensorConfig(
+            enabled=getattr(settings, "SECURITY_USE_ENABLED", True),
+            api_key=getattr(settings, "SECURITY_USE_API_KEY", None),
+            webhook_url=getattr(settings, "SECURITY_USE_WEBHOOK_URL", None),
+            block_on_detection=getattr(settings, "SECURITY_USE_BLOCK_ON_DETECTION", True),
+            excluded_paths=getattr(
+                settings, "SECURITY_USE_EXCLUDED_PATHS", ["/health/", "/metrics/"]
+            ),
+            watch_paths=getattr(settings, "SECURITY_USE_WATCH_PATHS", None),
+        )
+
+        self.detector = AttackDetector()
+
+        # Set up alerters
+        self.dashboard_alerter = None
+        self.webhook_alerter = None
+
+        if self.config.api_key:
+            self.dashboard_alerter = DashboardAlerter(api_key=self.config.api_key)
+
+        if self.config.webhook_url:
+            self.webhook_alerter = WebhookAlerter(webhook_url=self.config.webhook_url)
+
+        self._alert_queue = get_alert_queue()
+
+    def __call__(self, request):
+        """Process the request through security checks.
+
+        Args:
+            request: Django HttpRequest object.
+
+        Returns:
+            HttpResponse from the view or a 403 response if blocked.
+        """
+        from django.http import JsonResponse
+
+        if not self.config.enabled:
+            return self.get_response(request)
+
+        # Check excluded paths
+        if self.config.excluded_paths:
+            for excluded in self.config.excluded_paths:
+                if request.path.startswith(excluded):
+                    return self.get_response(request)
+
+        # Check watch paths (if specified, only analyze those)
+        if self.config.watch_paths:
+            should_analyze = any(
+                request.path.startswith(watch) for watch in self.config.watch_paths
+            )
+            if not should_analyze:
+                return self.get_response(request)
+
+        # Extract request data
+        request_data = self._extract_request_data(request)
+
+        # Analyze for attacks
+        events = self.detector.analyze_request(request_data)
+
+        if events:
+            action = ActionTaken.BLOCKED if self.config.block_on_detection else ActionTaken.LOGGED
+
+            # Queue alerts for background sending
+            for event in events:
+                if self.dashboard_alerter:
+                    self._alert_queue.enqueue(event, action, self.dashboard_alerter)
+                if self.webhook_alerter:
+                    self._alert_queue.enqueue(event, action, self.webhook_alerter)
+
+            if self.config.block_on_detection:
+                return JsonResponse(
+                    {"error": "Request blocked due to security policy"},
+                    status=403,
+                )
+
+        return self.get_response(request)
+
+    def _extract_request_data(self, request) -> RequestData:
+        """Extract request data from Django request.
+
+        Args:
+            request: Django HttpRequest object.
+
+        Returns:
+            Normalized RequestData for analysis.
+        """
+        # Get query params
+        query_params = dict(request.GET)
+        # Flatten single-value lists
+        query_params = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+
+        # Get headers (Django stores them as META with HTTP_ prefix)
+        headers = {}
+        for key, value in request.META.items():
+            if key.startswith("HTTP_"):
+                header_name = key[5:].lower().replace("_", "-")
+                headers[header_name] = value
+            elif key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
+                headers[key.lower().replace("_", "-")] = value
+
+        # Get client IP
+        source_ip = request.META.get("REMOTE_ADDR", "unknown")
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            source_ip = x_forwarded_for.split(",")[0].strip()
+
+        # Get body
+        body = None
+        if request.body:
+            try:
+                body = request.body.decode("utf-8", errors="replace")
+            except Exception:
+                pass
+
+        return RequestData(
+            method=request.method,
+            path=request.path,
+            query_params=query_params,
+            headers=headers,
+            body=body,
+            source_ip=source_ip,
+        )
