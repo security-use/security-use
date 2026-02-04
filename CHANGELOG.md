@@ -22,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Python class introspection (`__class__`, `__mro__`, `__globals__`)
   - Expression language injection (`${...}`, `#{...}`)
   - ERB/JSP template tags (`<%...%>`)
+- **NoSQL Injection detection**: MongoDB operator injection patterns
+  - `$where`, `$ne`, `$gt`, `$lt`, `$regex` operators
+  - Query injection via JSON payloads
+- **XXE detection**: XML External Entity attack patterns
+  - `<!ENTITY>` declarations, SYSTEM/PUBLIC keywords
+  - File and HTTP protocol access attempts
+- **Deserialization attack detection**: Serialized object attack patterns
+  - Java serialized objects (base64/hex markers)
+  - PHP serialized arrays/objects
+  - Python pickle and YAML unsafe load patterns
 - **CI workflow**: Comprehensive GitHub Actions workflow with:
   - Tests on Python 3.10, 3.11, 3.12
   - Linting with ruff
@@ -30,8 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Package build verification
 
 ### Changed
-- Runtime sensor now has 8 attack detection categories (was 6)
-- Test suite expanded to 297 tests (was 206)
+- Runtime sensor now has 11 attack detection categories (was 6)
+- Test suite expanded to 304 tests (was 206)
 - Codebase formatted with ruff for consistency
 - Total AWS IaC rules: 12 (was 8)
 
@@ -42,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added 8 SSRF/SSTI detection tests
 - Added 9 new AWS IaC rule tests
 - Added 4 Django middleware tests
+- Added 7 new attack detection tests (NoSQL, XXE, Deserialization)
 
 ### New AWS IaC Rules
 - **CKV_AWS_91**: ALB/ELB access logging
