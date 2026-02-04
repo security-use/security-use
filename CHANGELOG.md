@@ -38,10 +38,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Type checking with mypy
   - Security self-scan with SARIF upload
   - Package build verification
+- **New AWS IaC rules**:
+  - CKV_AWS_91: ALB/ELB access logging
+  - CKV_AWS_117: Lambda function VPC configuration
+  - CKV_AWS_26: SNS topic encryption
+  - CKV_AWS_27: SQS queue encryption
+- **New Azure IaC rules**:
+  - CKV_AZURE_14: App Service HTTPS enforcement
+  - CKV_AZURE_3: Storage account HTTPS requirement
+  - CKV_AZURE_70: Function App HTTPS enforcement
 
 ### Changed
 - Runtime sensor now has 11 attack detection categories (was 6)
-- Test suite expanded to 304 tests (was 206)
+- Test suite expanded to 310 tests (was 206)
 - Codebase formatted with ruff for consistency
 - Total AWS IaC rules: 12 (was 8)
 
