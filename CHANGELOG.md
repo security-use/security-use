@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Runtime sensor now has 11 attack detection categories (was 6)
 - Test suite expanded to 320 tests (was 206)
+- Added pytest-cov for code coverage tracking (65% coverage)
+- CI now reports test coverage to Codecov
 - Codebase formatted with ruff for consistency
 - Total AWS IaC rules: 12 (was 8)
 - Total Azure IaC rules: 9 (was 6)
