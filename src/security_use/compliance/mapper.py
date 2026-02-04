@@ -399,6 +399,50 @@ class ComplianceMapper:
                 "Set CPU and memory limits",
             ),
         ],
+        # Azure App Service HTTPS
+        "CKV_AZURE_14": [
+            (ComplianceFramework.SOC2, "CC6.7", "Data Transmission Protection", "Encrypt data in transit"),
+            (ComplianceFramework.PCI_DSS, "4.1", "Strong Cryptography", "Use strong cryptography for transmission"),
+            (ComplianceFramework.CIS_AZURE, "9.2", "Ensure HTTPS Only", "Require HTTPS for App Service"),
+        ],
+        # Azure Storage HTTPS
+        "CKV_AZURE_3": [
+            (ComplianceFramework.SOC2, "CC6.7", "Data Transmission Protection", "Encrypt data in transit"),
+            (ComplianceFramework.PCI_DSS, "4.1", "Strong Cryptography", "Use strong cryptography for transmission"),
+            (ComplianceFramework.CIS_AZURE, "3.1", "Ensure HTTPS for Storage", "Require HTTPS transfer"),
+        ],
+        # Azure Function App HTTPS
+        "CKV_AZURE_70": [
+            (ComplianceFramework.SOC2, "CC6.7", "Data Transmission Protection", "Encrypt data in transit"),
+            (ComplianceFramework.PCI_DSS, "4.1", "Strong Cryptography", "Use strong cryptography for transmission"),
+            (ComplianceFramework.CIS_AZURE, "9.10", "Ensure HTTPS for Functions", "Require HTTPS"),
+        ],
+        # GKE Private Cluster
+        "CKV_GCP_18": [
+            (ComplianceFramework.SOC2, "CC6.6", "Network Segmentation", "Isolate cluster nodes"),
+            (ComplianceFramework.CIS_GCP, "7.1", "Private Cluster", "Enable private nodes"),
+        ],
+        # GCP Cloud SQL SSL
+        "CKV_GCP_6": [
+            (ComplianceFramework.SOC2, "CC6.7", "Data Transmission Protection", "Encrypt database connections"),
+            (ComplianceFramework.PCI_DSS, "4.1", "Strong Cryptography", "Encrypt transmissions"),
+            (ComplianceFramework.CIS_GCP, "6.1", "Cloud SQL SSL", "Require SSL connections"),
+        ],
+        # GCP Compute SSH Keys
+        "CKV_GCP_32": [
+            (ComplianceFramework.SOC2, "CC6.1", "Access Controls", "SSH key management"),
+            (ComplianceFramework.CIS_GCP, "4.4", "Block Project-Wide SSH Keys", "Instance-specific keys"),
+        ],
+        # Kubernetes Allow Privilege Escalation
+        "CKV_K8S_20": [
+            (ComplianceFramework.SOC2, "CC6.1", "Access Controls", "Prevent privilege escalation"),
+            (ComplianceFramework.CIS_K8S, "5.2.5", "Minimize allowPrivilegeEscalation", "Disable privilege escalation"),
+        ],
+        # Kubernetes HostPath Volume
+        "CKV_K8S_26": [
+            (ComplianceFramework.SOC2, "CC6.1", "Access Controls", "Restrict host filesystem access"),
+            (ComplianceFramework.CIS_K8S, "5.7.1", "Avoid hostPath", "Do not use hostPath volumes"),
+        ],
     }
 
     def get_mapping(self, rule_id: str) -> ComplianceMapping:
