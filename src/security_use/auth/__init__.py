@@ -7,10 +7,10 @@ from .oauth import DeviceCode, OAuthError, OAuthFlow
 __all__ = [
     "AuthConfig",
     "AuthToken",
-    "UserInfo",
-    "OAuthFlow",
-    "OAuthError",
-    "DeviceCode",
     "DashboardClient",
+    "DeviceCode",
+    "OAuthError",
+    "OAuthFlow",
+    "UserInfo",
     "get_config_dir",
 ]

@@ -9,12 +9,12 @@ from security_use.models import IaCFinding, ScanResult, Vulnerability
 from security_use.scanner import scan_dependencies, scan_iac
 
 __all__ = [
-    "__version__",
-    "scan_dependencies",
-    "scan_iac",
-    "Vulnerability",
     "IaCFinding",
     "ScanResult",
-    "sensor",
+    "Vulnerability",
+    "__version__",
     "auth",
+    "scan_dependencies",
+    "scan_iac",
+    "sensor",
 ]
