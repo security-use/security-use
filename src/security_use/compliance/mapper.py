@@ -236,6 +236,79 @@ class ComplianceMapper:
             ),
             (ComplianceFramework.CIS_AWS, "3.9", "Ensure VPC Flow Logs", "Enable VPC Flow Logs"),
         ],
+        # AWS ALB Access Logs
+        "CKV_AWS_91": [
+            (ComplianceFramework.SOC2, "CC7.2", "System Monitoring", "Access log monitoring"),
+            (
+                ComplianceFramework.HIPAA,
+                "164.312(b)",
+                "Audit Controls",
+                "Record and examine system activity",
+            ),
+            (ComplianceFramework.PCI_DSS, "10.1", "Audit Trails", "Implement access logging"),
+            (
+                ComplianceFramework.NIST_800_53,
+                "AU-2",
+                "Audit Events",
+                "Generate audit records for access events",
+            ),
+            (
+                ComplianceFramework.CIS_AWS,
+                "2.6",
+                "Ensure ELB Access Logging",
+                "Enable access logging on load balancers",
+            ),
+        ],
+        # AWS SNS Encryption
+        "CKV_AWS_26": [
+            (ComplianceFramework.SOC2, "CC6.1", "Encryption", "Encrypt data at rest"),
+            (
+                ComplianceFramework.HIPAA,
+                "164.312(a)(2)(iv)",
+                "Encryption",
+                "Encrypt electronic PHI",
+            ),
+            (ComplianceFramework.PCI_DSS, "3.4", "Protect Stored Data", "Render data unreadable"),
+            (
+                ComplianceFramework.NIST_800_53,
+                "SC-28",
+                "Protection at Rest",
+                "Protect confidentiality of data at rest",
+            ),
+        ],
+        # AWS SQS Encryption
+        "CKV_AWS_27": [
+            (ComplianceFramework.SOC2, "CC6.1", "Encryption", "Encrypt data at rest"),
+            (
+                ComplianceFramework.HIPAA,
+                "164.312(a)(2)(iv)",
+                "Encryption",
+                "Encrypt electronic PHI",
+            ),
+            (ComplianceFramework.PCI_DSS, "3.4", "Protect Stored Data", "Render data unreadable"),
+            (
+                ComplianceFramework.NIST_800_53,
+                "SC-28",
+                "Protection at Rest",
+                "Protect confidentiality of data at rest",
+            ),
+        ],
+        # AWS Lambda VPC
+        "CKV_AWS_117": [
+            (
+                ComplianceFramework.SOC2,
+                "CC6.6",
+                "Network Segmentation",
+                "Restrict network access to private resources",
+            ),
+            (ComplianceFramework.PCI_DSS, "1.3", "Network Segmentation", "Restrict connections"),
+            (
+                ComplianceFramework.NIST_800_53,
+                "SC-7",
+                "Boundary Protection",
+                "Monitor and control communications at boundary",
+            ),
+        ],
         # Azure Storage Public Access
         "CKV_AZURE_19": [
             (
