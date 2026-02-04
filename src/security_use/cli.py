@@ -901,6 +901,185 @@ def sbom_enrich(sbom_file: str, output: Optional[str]) -> None:
 
 
 # =============================================================================
+# Init Command
+# =============================================================================
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option(
+    "--no-middleware", is_flag=True,
+    help="Skip middleware injection",
+)
+@click.option(
+    "--no-precommit", is_flag=True,
+    help="Skip pre-commit hook setup",
+)
+@click.option(
+    "--dry-run", is_flag=True,
+    help="Show what would be done without making changes",
+)
+@click.option(
+    "--yes", "-y", is_flag=True,
+    help="Skip confirmation prompts",
+)
+def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes: bool) -> None:
+    """Initialize security-use for your project.
+
+    Automatically detects your framework (FastAPI, Flask, Django) and sets up:
+
+    \b
+    • .security-use.yaml configuration file
+    • Runtime protection middleware (FastAPI/Flask)
+    • Pre-commit hooks for scanning on commit
+
+    \b
+    Examples:
+        security-use init                    # Initialize current directory
+        security-use init ./my-project       # Initialize specific project
+        security-use init --dry-run          # Preview changes
+        security-use init --no-middleware    # Skip middleware injection
+    """
+    from rich.panel import Panel
+    from rich.table import Table
+    from security_use.init import ProjectInitializer, Framework
+
+    project_path = Path(path).resolve()
+    initializer = ProjectInitializer(project_path)
+
+    # Detect project
+    console.print(f"\n[blue]🔍 Analyzing project in {project_path}...[/blue]\n")
+    info = initializer.detect()
+
+    # Show detection results
+    table = Table(title="Project Detection Results", show_header=False, box=None)
+    table.add_column("Property", style="dim")
+    table.add_column("Value")
+
+    # Framework
+    framework_emoji = {
+        Framework.FASTAPI: "⚡",
+        Framework.FLASK: "🌶️",
+        Framework.DJANGO: "🎸",
+        Framework.UNKNOWN: "❓",
+    }
+    framework_display = f"{framework_emoji.get(info.framework, '')} {info.framework.value.title()}"
+    table.add_row("Framework", framework_display)
+
+    # App file
+    if info.primary_app:
+        app_display = f"{info.primary_app.path.name} ({info.primary_app.app_variable})"
+        if info.primary_app.has_middleware:
+            app_display += " [green]✓ middleware[/green]"
+        table.add_row("App File", app_display)
+
+    # Dependencies
+    dep_files = []
+    if info.has_requirements:
+        dep_files.append("requirements.txt")
+    if info.has_pyproject:
+        dep_files.append("pyproject.toml")
+    if info.has_pipfile:
+        dep_files.append("Pipfile")
+    if info.has_poetry_lock:
+        dep_files.append("poetry.lock")
+    table.add_row("Dependencies", ", ".join(dep_files) if dep_files else "[dim]None found[/dim]")
+
+    # IaC
+    iac_files = []
+    if info.has_terraform:
+        iac_files.append("Terraform")
+    if info.has_cloudformation:
+        iac_files.append("CloudFormation")
+    table.add_row("IaC", ", ".join(iac_files) if iac_files else "[dim]None found[/dim]")
+
+    # Existing config
+    table.add_row("Existing Config", "[green]Yes[/green]" if info.has_security_use_config else "[dim]No[/dim]")
+    table.add_row("Pre-commit", "[green]Yes[/green]" if info.has_pre_commit else "[dim]No[/dim]")
+
+    console.print(table)
+    console.print()
+
+    # Show what will be done
+    actions = []
+
+    if not info.has_security_use_config:
+        actions.append("📄 Create .security-use.yaml configuration")
+
+    if not no_middleware and info.primary_app and not info.primary_app.has_middleware:
+        if info.primary_app.framework in (Framework.FASTAPI, Framework.FLASK):
+            actions.append(f"🛡️  Inject SecurityMiddleware into {info.primary_app.path.name}")
+
+    if not no_precommit:
+        if info.has_pre_commit:
+            actions.append("🪝 Add security-use hook to .pre-commit-config.yaml")
+        else:
+            actions.append("🪝 Create .pre-commit-config.yaml with security-use hook")
+
+    if not actions:
+        console.print("[green]✅ Project already configured! Nothing to do.[/green]")
+        return
+
+    console.print("[bold]Actions to perform:[/bold]")
+    for action in actions:
+        prefix = "[dim](dry-run)[/dim] " if dry_run else ""
+        console.print(f"  {prefix}{action}")
+    console.print()
+
+    # Confirm
+    if not yes and not dry_run:
+        if not click.confirm("Proceed with initialization?", default=True):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    # Execute
+    results = initializer.initialize(
+        info,
+        inject_middleware=not no_middleware,
+        setup_precommit=not no_precommit,
+        dry_run=dry_run,
+    )
+
+    # Show results
+    console.print()
+    if dry_run:
+        console.print("[yellow]Dry run complete. No changes made.[/yellow]")
+    else:
+        console.print("[green]✅ Initialization complete![/green]")
+
+    # Config result
+    if results['config']['success']:
+        console.print(f"  [green]✓[/green] {results['config']['message']}")
+    elif results['config']['message']:
+        console.print(f"  [dim]○[/dim] {results['config']['message']}")
+
+    # Middleware result
+    if results['middleware']['success']:
+        console.print(f"  [green]✓[/green] {results['middleware']['message']}")
+    elif results['middleware']['message']:
+        console.print(f"  [dim]○[/dim] {results['middleware']['message']}")
+
+    # Pre-commit result
+    if results['precommit']['success']:
+        console.print(f"  [green]✓[/green] {results['precommit']['message']}")
+    elif results['precommit']['message']:
+        console.print(f"  [dim]○[/dim] {results['precommit']['message']}")
+
+    # Next steps
+    console.print()
+    console.print(Panel(
+        "[bold]Next Steps:[/bold]\n\n"
+        "1. [cyan]security-use auth login[/cyan]     Connect to dashboard\n"
+        "2. [cyan]security-use scan all .[/cyan]    Run your first scan\n"
+        "3. [cyan]pip install pre-commit && pre-commit install[/cyan]\n"
+        "   Enable pre-commit hooks\n\n"
+        "[dim]Dashboard: https://security-use.dev[/dim]",
+        title="🚀 Ready to go!",
+        border_style="green",
+    ))
+
+
+# =============================================================================
 # Sync Command
 # =============================================================================
 
