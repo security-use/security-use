@@ -1,0 +1,60 @@
+# Pre-commit hooks configuration
+# See https://pre-commit.com for more information
+
+repos:
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: debug-statements
+
+  # Security scanning with SecurityUse
+  - repo: local
+    hooks:
+      - id: security-use-deps
+        name: SecurityUse Dependency Scan
+        entry: security-use scan deps --ci --fail-on high
+        language: system
+        pass_filenames: false
+        files: \.(txt|toml|lock)$
+        types_or: [text]
+
+      - id: security-use-iac
+        name: SecurityUse IaC Scan
+        entry: security-use scan iac --ci --fail-on high
+        language: system
+        pass_filenames: false
+        files: \.(tf|yaml|yml|json)$
+        types_or: [text]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-PyYAML
+        args: [--ignore-missing-imports]
+        files: ^src/
+
+# Configuration
+default_language_version:
+  python: python3.11
