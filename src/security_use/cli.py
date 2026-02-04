@@ -4,8 +4,6 @@ import logging
 import sys
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 import click
 from rich.console import Console
 
@@ -14,6 +12,7 @@ from security_use.models import ScanResult, Severity
 from security_use.reporter import create_reporter
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def _get_severity_threshold(severity: str) -> Severity:
@@ -461,7 +460,7 @@ def _fix_dependency_vulnerabilities(path: str, dry_run: bool) -> int:
     package_fixes = _collect_package_fixes(dep_result.vulnerabilities)
 
     if not package_fixes:
-        console.print("[yellow]No automatic fixes available for dependency vulnerabilities[/yellow]")
+        console.print("[yellow]No automatic fixes available for vulnerabilities[/yellow]")
         return 0
 
     _display_package_fixes(package_fixes)
@@ -576,7 +575,8 @@ def _report_unfixable_findings(findings: list, iac_fixer) -> None:
     """Report findings that require manual remediation."""
     unfixable = [f for f in findings if not iac_fixer.has_fix(f.rule_id)]
     if unfixable:
-        console.print(f"\n[yellow]{len(unfixable)} IaC finding(s) require manual remediation:[/yellow]")
+        msg = f"{len(unfixable)} IaC finding(s) require manual remediation"
+        console.print(f"\n[yellow]{msg}:[/yellow]")
         for finding in unfixable:
             console.print(f"  • [{finding.rule_id}] {finding.title}")
 
@@ -757,9 +757,8 @@ def auth_login(no_browser: bool) -> None:
     config = AuthConfig()
 
     if config.is_authenticated:
-        console.print(
-            f"[yellow]Already logged in as {config.user.email if config.user else 'unknown'}[/yellow]"
-        )
+        user_email = config.user.email if config.user else "unknown"
+        console.print(f"[yellow]Already logged in as {user_email}[/yellow]")
         console.print("Run 'security-use auth logout' first to log in as a different user.")
         return
 
@@ -1031,7 +1030,8 @@ def sbom_enrich(sbom_file: str, output: str | None, dry_run: bool) -> None:
     else:
         console.print("\n[yellow]Dry run - no file written[/yellow]")
 
-    console.print(f"\n[bold]Summary:[/bold] {vulnerabilities_found} vulnerabilities found in {len(components)} components")
+    summary = f"{vulnerabilities_found} vulnerabilities found in {len(components)} components"
+    console.print(f"\n[bold]Summary:[/bold] {summary}")
 
 
 def _extract_sbom_components(sbom_data: dict) -> list[dict]:
@@ -1377,9 +1377,8 @@ def sync(path: str, project: str | None, severity: str) -> None:
         if "url" in response:
             console.print(f"\n  View results: [link={response['url']}]{response['url']}[/link]")
         elif "dashboard_url" in response:
-            console.print(
-                f"\n  View results: [link={response['dashboard_url']}]{response['dashboard_url']}[/link]"
-            )
+            url = response['dashboard_url']
+            console.print(f"\n  View results: [link={url}]{url}[/link]")
 
     except OAuthError as e:
         console.print(f"[red]Failed to upload: {e}[/red]")
