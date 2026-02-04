@@ -190,9 +190,32 @@ pip install security-use[dev]
 
 ## Quick Start
 
+### Zero-Config Setup (Recommended)
+
+The fastest way to secure your project:
+
+```bash
+# Install
+pip install security-use
+
+# Initialize - auto-detects framework, injects middleware, sets up pre-commit hooks
+cd your-project
+security-use init
+
+# That's it! Your app now has:
+# ✓ Runtime attack protection (FastAPI/Flask)
+# ✓ Pre-commit security scanning
+# ✓ Configuration file for customization
+```
+
 ### Command Line Interface
 
 ```bash
+# Initialize a project (auto-detects FastAPI/Flask/Django)
+security-use init ./my-project
+security-use init --dry-run          # Preview changes without modifying files
+security-use init --no-middleware    # Skip middleware injection
+
 # Scan dependencies for vulnerabilities
 security-use scan deps ./my-project
 
