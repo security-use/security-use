@@ -94,10 +94,10 @@ class OAuthFlow:
                 try:
                     return DeviceCode.from_dict(response.json())
                 except (ValueError, KeyError) as e:
-                    raise OAuthError(f"Invalid response from OAuth server: {e}")
+                    raise OAuthError(f"Invalid response from OAuth server: {e}") from e
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error connecting to {self.auth_url}: {e}")
+            raise OAuthError(f"Network error connecting to {self.auth_url}: {e}") from e
 
     def poll_for_token(
         self,
@@ -221,7 +221,7 @@ class OAuthFlow:
                 )
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}")
+            raise OAuthError(f"Network error: {e}") from e
 
     def refresh_token(self, refresh_token: str) -> AuthToken:
         """Refresh an expired access token.
@@ -266,7 +266,7 @@ class OAuthFlow:
                 )
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}")
+            raise OAuthError(f"Network error: {e}") from e
 
     def login(
         self,

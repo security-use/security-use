@@ -157,7 +157,7 @@ class DependencyFixer:
         new_lines = new_content.split("\n")
 
         diff_lines = []
-        for i, (old_line, new_line) in enumerate(zip(old_lines, new_lines)):
+        for old_line, new_line in zip(old_lines, new_lines):
             if old_line != new_line:
                 diff_lines.append(f"-{old_line}")
                 diff_lines.append(f"+{new_line}")

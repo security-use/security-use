@@ -143,9 +143,6 @@ class GCPCloudSQLEncryptionRule(Rule):
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
         """Check if Cloud SQL uses CMEK."""
-        settings = resource.get_config("settings", default={})
-        ip_config = settings.get("ip_configuration", {})
-
         # Check for encryption key
         encryption_key = resource.get_config("encryption_key_name")
 

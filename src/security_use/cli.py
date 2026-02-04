@@ -972,7 +972,7 @@ def sbom_enrich(sbom_file: str, output: str | None) -> None:
     content = Path(sbom_file).read_text(encoding="utf-8")
 
     try:
-        sbom_data = json.loads(content)
+        _ = json.loads(content)  # Validate JSON structure
     except json.JSONDecodeError:
         console.print("[red]Error: Only JSON SBOM files can be enriched[/red]")
         sys.exit(1)

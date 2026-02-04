@@ -381,11 +381,6 @@ app.wsgi_app = FlaskSecurityMiddleware(
         lines.insert(import_insert_idx, import_stmt)
 
         # Find position to insert middleware (after app creation)
-        app_pattern = (
-            self.FASTAPI_MIDDLEWARE
-            if app_file.framework == Framework.FASTAPI
-            else self.FLASK_MIDDLEWARE
-        )
         app_creation_pattern = rf"{app_file.app_variable}\s*=\s*(FastAPI|Flask)\s*\("
 
         middleware_insert_idx = len(lines)

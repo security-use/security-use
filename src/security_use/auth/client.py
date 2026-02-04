@@ -44,10 +44,10 @@ class DashboardClient:
                 try:
                     new_token = self.oauth.refresh_token(self.config.token.refresh_token)
                     self.config.save_token(new_token, self.config.user)
-                except OAuthError:
+                except OAuthError as e:
                     raise OAuthError(
                         "Session expired. Run 'security-use auth login' to re-authenticate."
-                    )
+                    ) from e
             else:
                 raise OAuthError(
                     "Session expired. Run 'security-use auth login' to re-authenticate."
@@ -150,7 +150,7 @@ class DashboardClient:
                 return response.json()
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}")
+            raise OAuthError(f"Network error: {e}") from e
 
     def get_scans(
         self,
@@ -194,7 +194,7 @@ class DashboardClient:
                 return response.json().get("scans", [])
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}")
+            raise OAuthError(f"Network error: {e}") from e
 
     def get_projects(self) -> list[dict]:
         """Get list of projects for the authenticated user.
@@ -225,4 +225,4 @@ class DashboardClient:
                 return response.json().get("projects", [])
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}")
+            raise OAuthError(f"Network error: {e}") from e
