@@ -1881,3 +1881,168 @@ class TestASGIBodyHandling:
 
         # Body should still be available to application
         assert received_body == body
+
+
+class TestDjangoSecurityMiddleware:
+    """Tests for Django middleware."""
+
+    @pytest.fixture
+    def mock_django_settings(self):
+        """Create mock Django settings module."""
+        from types import SimpleNamespace
+
+        # SimpleNamespace with getattr support for defaults
+        class MockSettings:
+            SECURITY_USE_ENABLED = True
+            SECURITY_USE_API_KEY = None
+            SECURITY_USE_WEBHOOK_URL = None
+            SECURITY_USE_BLOCK_ON_DETECTION = True
+            SECURITY_USE_EXCLUDED_PATHS = ["/health/", "/metrics/"]
+            SECURITY_USE_WATCH_PATHS = None
+
+        return MockSettings()
+
+    @pytest.fixture
+    def mock_django_request(self):
+        """Create a mock Django request object."""
+
+        class MockRequest:
+            def __init__(
+                self,
+                method="GET",
+                path="/",
+                body=b"",
+                GET=None,
+                META=None,
+            ):
+                self.method = method
+                self.path = path
+                self.body = body
+                self.GET = GET or {}
+                self.META = META or {
+                    "REMOTE_ADDR": "127.0.0.1",
+                    "REQUEST_METHOD": method,
+                }
+
+        return MockRequest
+
+    def test_django_middleware_import(self):
+        """Test that Django middleware can be imported."""
+        from security_use.sensor import DjangoSecurityMiddleware
+
+        assert DjangoSecurityMiddleware is not None
+
+    def test_django_middleware_init(self, mock_django_settings):
+        """Test Django middleware initialization."""
+        from security_use.sensor.middleware import DjangoSecurityMiddleware
+
+        # Mock Django settings
+        import sys
+
+        mock_module = type(sys)("django.conf")
+        mock_module.settings = mock_django_settings
+        sys.modules["django"] = type(sys)("django")
+        sys.modules["django.conf"] = mock_module
+        sys.modules["django.http"] = type(sys)("django.http")
+
+        def get_response(request):
+            return {"status": 200}
+
+        try:
+            middleware = DjangoSecurityMiddleware(get_response)
+            assert middleware._enabled is True
+            assert middleware.config.block_on_detection is True
+        finally:
+            # Cleanup
+            del sys.modules["django"]
+            del sys.modules["django.conf"]
+            del sys.modules["django.http"]
+
+    def test_django_middleware_excluded_path(self, mock_django_settings, mock_django_request):
+        """Test that excluded paths are skipped."""
+        from security_use.sensor.middleware import DjangoSecurityMiddleware
+
+        import sys
+
+        mock_module = type(sys)("django.conf")
+        mock_module.settings = mock_django_settings
+        sys.modules["django"] = type(sys)("django")
+        sys.modules["django.conf"] = mock_module
+
+        # Mock JsonResponse
+        mock_http = type(sys)("django.http")
+
+        class MockJsonResponse:
+            def __init__(self, data, status=200):
+                self.data = data
+                self.status_code = status
+
+        mock_http.JsonResponse = MockJsonResponse
+        sys.modules["django.http"] = mock_http
+
+        response_called = False
+
+        def get_response(request):
+            nonlocal response_called
+            response_called = True
+            return {"status": 200}
+
+        try:
+            middleware = DjangoSecurityMiddleware(get_response)
+            request = mock_django_request(path="/health/")
+
+            middleware(request)
+            assert response_called is True
+        finally:
+            del sys.modules["django"]
+            del sys.modules["django.conf"]
+            del sys.modules["django.http"]
+
+    def test_django_middleware_detects_attack(self, mock_django_settings, mock_django_request):
+        """Test that Django middleware detects SQL injection."""
+        from security_use.sensor.middleware import DjangoSecurityMiddleware
+
+        import sys
+
+        mock_module = type(sys)("django.conf")
+        mock_django_settings.SECURITY_USE_BLOCK_ON_DETECTION = True
+        mock_module.settings = mock_django_settings
+        sys.modules["django"] = type(sys)("django")
+        sys.modules["django.conf"] = mock_module
+
+        # Mock JsonResponse
+        mock_http = type(sys)("django.http")
+
+        class MockJsonResponse:
+            def __init__(self, data, status=200):
+                self.data = data
+                self.status_code = status
+
+        mock_http.JsonResponse = MockJsonResponse
+        sys.modules["django.http"] = mock_http
+
+        def get_response(request):
+            return {"status": 200}
+
+        try:
+            middleware = DjangoSecurityMiddleware(get_response)
+
+            # Create request with SQL injection in body
+            request = mock_django_request(
+                method="POST",
+                path="/api/login",
+                body=b"username=admin' OR 1=1--",
+                META={
+                    "REMOTE_ADDR": "192.168.1.100",
+                    "REQUEST_METHOD": "POST",
+                },
+            )
+
+            response = middleware(request)
+
+            # Should return 403 Forbidden
+            assert response.status_code == 403
+        finally:
+            del sys.modules["django"]
+            del sys.modules["django.conf"]
+            del sys.modules["django.http"]

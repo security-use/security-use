@@ -651,9 +651,11 @@ class DjangoSecurityMiddleware:
         # Import Django settings lazily
         from django.conf import settings
 
+        # Track enabled state separately (not part of SensorConfig)
+        self._enabled = getattr(settings, "SECURITY_USE_ENABLED", True)
+
         # Build config from Django settings
-        self.config = SensorConfig(
-            enabled=getattr(settings, "SECURITY_USE_ENABLED", True),
+        self.config = create_config(
             api_key=getattr(settings, "SECURITY_USE_API_KEY", None),
             webhook_url=getattr(settings, "SECURITY_USE_WEBHOOK_URL", None),
             block_on_detection=getattr(settings, "SECURITY_USE_BLOCK_ON_DETECTION", True),
@@ -688,7 +690,7 @@ class DjangoSecurityMiddleware:
         """
         from django.http import JsonResponse
 
-        if not self.config.enabled:
+        if not self._enabled:
             return self.get_response(request)
 
         # Check excluded paths
