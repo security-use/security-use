@@ -460,6 +460,27 @@ security-scan:
       security: security-report.json
 ```
 
+### Jenkins Pipeline
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Security Scan') {
+            steps {
+                sh 'pip install security-use'
+                sh 'security-use scan all . --format json > security-report.json'
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'security-report.json'
+                }
+            }
+        }
+    }
+}
+```
+
 ### Pre-commit Hook
 
 ```yaml
