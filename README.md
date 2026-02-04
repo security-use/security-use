@@ -63,9 +63,11 @@ Find security misconfigurations before they reach production.
 
 | Platform | Formats | Rules |
 |----------|---------|-------|
-| **Terraform** | `.tf`, `.tf.json` | 25+ |
-| **CloudFormation** | `.yaml`, `.yml`, `.json` | 20+ |
-| **AWS** | S3, EC2, IAM, RDS, Lambda | Full coverage |
+| **Terraform** | `.tf`, `.tf.json` | 38+ |
+| **CloudFormation** | `.yaml`, `.yml`, `.json` | 30+ |
+| **AWS** | S3, EC2, IAM, RDS, Lambda, SNS, SQS, ALB | Full coverage |
+| **Azure** | Storage, App Service, SQL, Key Vault, NSG | Full coverage |
+| **GCP** | GCS, Cloud SQL, GKE, Compute, Firewall | Full coverage |
 
 **Detects:**
 - Unencrypted storage and databases
