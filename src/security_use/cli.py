@@ -956,7 +956,12 @@ def sbom_generate(path: str, format: str, output: str | None, include_vulns: boo
     type=click.Path(),
     help="Write enriched SBOM to file",
 )
-def sbom_enrich(sbom_file: str, output: str | None) -> None:
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Preview changes without writing",
+)
+def sbom_enrich(sbom_file: str, output: str | None, dry_run: bool) -> None:
     """Enrich an existing SBOM with vulnerability data.
 
     Adds VEX (Vulnerability Exploitability eXchange) information
@@ -972,15 +977,101 @@ def sbom_enrich(sbom_file: str, output: str | None) -> None:
     content = Path(sbom_file).read_text(encoding="utf-8")
 
     try:
-        _ = json.loads(content)  # Validate JSON structure
+        sbom_data = json.loads(content)
     except json.JSONDecodeError:
         console.print("[red]Error: Only JSON SBOM files can be enriched[/red]")
         sys.exit(1)
 
-    # TODO: Add vulnerability enrichment logic
-    # This would query OSV for each component and add VEX data
+    # Extract components from SBOM
+    components = _extract_sbom_components(sbom_data)
 
-    console.print("[yellow]SBOM enrichment not yet implemented[/yellow]")
+    if not components:
+        console.print("[yellow]No components found in SBOM[/yellow]")
+        return
+
+    console.print(f"[blue]Found {len(components)} components to check...[/blue]")
+
+    # Query OSV for vulnerabilities
+    from security_use.osv_client import OSVClient
+
+    osv_client = OSVClient()
+    vulnerabilities_found = 0
+
+    for component in components:
+        name = component.get("name", "")
+        version = component.get("version", "")
+        ecosystem = component.get("ecosystem", "PyPI")
+
+        if not name or not version:
+            continue
+
+        vulns = osv_client.query(name, version, ecosystem)
+        if vulns:
+            vulnerabilities_found += len(vulns)
+            console.print(f"  [yellow]⚠ {name}@{version}: {len(vulns)} vulnerability(ies)[/yellow]")
+
+            # Add VEX data to component
+            if "vulnerabilities" not in component:
+                component["vulnerabilities"] = []
+            for vuln in vulns:
+                component["vulnerabilities"].append({
+                    "id": vuln.get("id", ""),
+                    "severity": vuln.get("severity", "UNKNOWN"),
+                    "status": "affected",
+                })
+
+    # Write enriched SBOM
+    if not dry_run:
+        output_path = Path(sbom_file).with_suffix(".enriched.json")
+        output_path.write_text(json.dumps(sbom_data, indent=2), encoding="utf-8")
+        console.print(f"\n[green]Enriched SBOM written to: {output_path}[/green]")
+    else:
+        console.print("\n[yellow]Dry run - no file written[/yellow]")
+
+    console.print(f"\n[bold]Summary:[/bold] {vulnerabilities_found} vulnerabilities found in {len(components)} components")
+
+
+def _extract_sbom_components(sbom_data: dict) -> list[dict]:
+    """Extract components from SBOM data (supports CycloneDX and SPDX formats)."""
+    components = []
+
+    # CycloneDX format
+    if "components" in sbom_data:
+        for comp in sbom_data.get("components", []):
+            components.append({
+                "name": comp.get("name", ""),
+                "version": comp.get("version", ""),
+                "ecosystem": _detect_ecosystem(comp),
+            })
+
+    # SPDX format
+    elif "packages" in sbom_data:
+        for pkg in sbom_data.get("packages", []):
+            name = pkg.get("name", "")
+            version = pkg.get("versionInfo", "")
+            components.append({
+                "name": name,
+                "version": version,
+                "ecosystem": _detect_ecosystem(pkg),
+            })
+
+    return components
+
+
+def _detect_ecosystem(component: dict) -> str:
+    """Detect the package ecosystem from component data."""
+    purl = component.get("purl", "")
+    if "pkg:pypi/" in purl:
+        return "PyPI"
+    elif "pkg:npm/" in purl:
+        return "npm"
+    elif "pkg:maven/" in purl:
+        return "Maven"
+    elif "pkg:cargo/" in purl:
+        return "crates.io"
+    elif "pkg:golang/" in purl:
+        return "Go"
+    return "PyPI"  # Default to PyPI
 
 
 # =============================================================================
