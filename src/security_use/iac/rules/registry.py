@@ -173,19 +173,25 @@ def _register_default_rules(registry: RuleRegistry) -> None:
 
     # Kubernetes Rules
     from security_use.iac.rules.kubernetes import (
-        K8sRunAsRootRule,
-        K8sPrivilegedContainerRule,
-        K8sResourceLimitsRule,
+        K8sAllowPrivilegeEscalationRule,
         K8sHostNetworkRule,
-        K8sSecretsEnvVarsRule,
-        K8sReadOnlyRootFilesystemRule,
+        K8sHostPathVolumeRule,
         K8sNetworkPolicyRule,
+        K8sPrivilegedContainerRule,
+        K8sReadOnlyRootFilesystemRule,
+        K8sResourceLimitsRule,
+        K8sRunAsRootRule,
+        K8sSecretsEnvVarsRule,
     )
 
-    registry.register_class(K8sRunAsRootRule)
-    registry.register_class(K8sPrivilegedContainerRule)
-    registry.register_class(K8sResourceLimitsRule)
+    registry.register_class(K8sAllowPrivilegeEscalationRule)
     registry.register_class(K8sHostNetworkRule)
+    registry.register_class(K8sHostPathVolumeRule)
+    registry.register_class(K8sNetworkPolicyRule)
+    registry.register_class(K8sPrivilegedContainerRule)
+    registry.register_class(K8sReadOnlyRootFilesystemRule)
+    registry.register_class(K8sResourceLimitsRule)
+    registry.register_class(K8sRunAsRootRule)
     registry.register_class(K8sSecretsEnvVarsRule)
     registry.register_class(K8sReadOnlyRootFilesystemRule)
     registry.register_class(K8sNetworkPolicyRule)

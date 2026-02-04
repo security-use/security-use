@@ -417,3 +417,117 @@ spec:
 
         # Default to warning to encourage network policies
         return self._create_result(False, resource, fix_code)
+
+
+class K8sAllowPrivilegeEscalationRule(Rule):
+    """Check that containers don't allow privilege escalation."""
+
+    RULE_ID = "CKV_K8S_20"
+    TITLE = "Container allows privilege escalation"
+    SEVERITY = Severity.HIGH
+    DESCRIPTION = (
+        "Container security context allows privilege escalation. "
+        "This can allow a process to gain more privileges than its parent."
+    )
+    REMEDIATION = "Set allowPrivilegeEscalation to false in the container's securityContext."
+    RESOURCE_TYPES = [
+        "kubernetes_pod",
+        "kubernetes_deployment",
+        "kubernetes_stateful_set",
+        "kubernetes_daemon_set",
+        "kubernetes_job",
+        "kubernetes_cron_job",
+        "Pod",
+        "Deployment",
+        "StatefulSet",
+        "DaemonSet",
+        "Job",
+        "CronJob",
+    ]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if containers allow privilege escalation."""
+        containers = self._get_containers(resource)
+
+        for container in containers:
+            security_context = container.get("securityContext", container.get("security_context", {}))
+            allow_escalation = security_context.get("allowPrivilegeEscalation", security_context.get("allow_privilege_escalation"))
+
+            # If not explicitly set to false, it defaults to true
+            if allow_escalation is not False:
+                fix_code = """securityContext:
+  allowPrivilegeEscalation: false"""
+                return self._create_result(False, resource, fix_code)
+
+        return self._create_result(True, resource)
+
+    def _get_containers(self, resource: IaCResource) -> list:
+        """Extract container specs from various resource types."""
+        # Direct pod spec
+        spec = resource.get_config("spec", default={})
+        containers = spec.get("containers", spec.get("container", []))
+
+        # Deployment/StatefulSet/etc have nested spec
+        if not containers:
+            template = spec.get("template", {})
+            inner_spec = template.get("spec", {})
+            containers = inner_spec.get("containers", inner_spec.get("container", []))
+
+        if isinstance(containers, dict):
+            containers = [containers]
+
+        return containers if containers else []
+
+
+class K8sHostPathVolumeRule(Rule):
+    """Check that pods don't use hostPath volumes."""
+
+    RULE_ID = "CKV_K8S_26"
+    TITLE = "Pod uses hostPath volume"
+    SEVERITY = Severity.HIGH
+    DESCRIPTION = (
+        "Pod uses hostPath volume which mounts a file or directory from "
+        "the host node. This can expose sensitive host files to containers."
+    )
+    REMEDIATION = "Use persistent volumes, ConfigMaps, or Secrets instead of hostPath volumes."
+    RESOURCE_TYPES = [
+        "kubernetes_pod",
+        "kubernetes_deployment",
+        "kubernetes_stateful_set",
+        "kubernetes_daemon_set",
+        "kubernetes_job",
+        "kubernetes_cron_job",
+        "Pod",
+        "Deployment",
+        "StatefulSet",
+        "DaemonSet",
+        "Job",
+        "CronJob",
+    ]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if pod uses hostPath volumes."""
+        spec = resource.get_config("spec", default={})
+
+        # Check for volumes in spec
+        volumes = spec.get("volumes", spec.get("volume", []))
+
+        # Also check nested template spec
+        if not volumes:
+            template = spec.get("template", {})
+            inner_spec = template.get("spec", {})
+            volumes = inner_spec.get("volumes", inner_spec.get("volume", []))
+
+        if isinstance(volumes, dict):
+            volumes = [volumes]
+
+        for volume in volumes:
+            if "hostPath" in volume or "host_path" in volume:
+                fix_code = """# Use PersistentVolumeClaim instead of hostPath
+volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: my-pvc"""
+                return self._create_result(False, resource, fix_code)
+
+        return self._create_result(True, resource)

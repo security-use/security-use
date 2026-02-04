@@ -761,3 +761,108 @@ class TestGCPComputeSSHKeysRule:
         rule = GCPComputeSSHKeysRule()
         result = rule.evaluate(resource)
         assert result.passed is False
+
+
+class TestK8sAllowPrivilegeEscalationRule:
+    """Tests for K8s allow privilege escalation rule."""
+
+    def test_pod_disallowing_escalation_passes(self):
+        from security_use.iac.rules.kubernetes import K8sAllowPrivilegeEscalationRule
+
+        resource = IaCResource(
+            resource_type="kubernetes_pod",
+            name="my_pod",
+            config={
+                "spec": {
+                    "containers": [{
+                        "name": "app",
+                        "securityContext": {
+                            "allowPrivilegeEscalation": False,
+                        }
+                    }]
+                }
+            },
+            file_path="pod.yaml",
+            line_number=1,
+        )
+
+        rule = K8sAllowPrivilegeEscalationRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_pod_allowing_escalation_fails(self):
+        from security_use.iac.rules.kubernetes import K8sAllowPrivilegeEscalationRule
+
+        resource = IaCResource(
+            resource_type="kubernetes_pod",
+            name="my_pod",
+            config={
+                "spec": {
+                    "containers": [{
+                        "name": "app",
+                        "securityContext": {
+                            "allowPrivilegeEscalation": True,
+                        }
+                    }]
+                }
+            },
+            file_path="pod.yaml",
+            line_number=1,
+        )
+
+        rule = K8sAllowPrivilegeEscalationRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+
+
+class TestK8sHostPathVolumeRule:
+    """Tests for K8s hostPath volume rule."""
+
+    def test_pod_without_hostpath_passes(self):
+        from security_use.iac.rules.kubernetes import K8sHostPathVolumeRule
+
+        resource = IaCResource(
+            resource_type="kubernetes_pod",
+            name="my_pod",
+            config={
+                "spec": {
+                    "volumes": [{
+                        "name": "data",
+                        "persistentVolumeClaim": {
+                            "claimName": "my-pvc"
+                        }
+                    }]
+                }
+            },
+            file_path="pod.yaml",
+            line_number=1,
+        )
+
+        rule = K8sHostPathVolumeRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_pod_with_hostpath_fails(self):
+        from security_use.iac.rules.kubernetes import K8sHostPathVolumeRule
+
+        resource = IaCResource(
+            resource_type="kubernetes_pod",
+            name="my_pod",
+            config={
+                "spec": {
+                    "volumes": [{
+                        "name": "host-data",
+                        "hostPath": {
+                            "path": "/var/log"
+                        }
+                    }]
+                }
+            },
+            file_path="pod.yaml",
+            line_number=1,
+        )
+
+        rule = K8sHostPathVolumeRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+        assert "PersistentVolumeClaim" in result.fix_code
