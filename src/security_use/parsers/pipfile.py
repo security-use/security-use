@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -60,7 +60,7 @@ class PipfileParser(DependencyParser):
 
         return dependencies
 
-    def _parse_version_spec(self, spec: str) -> tuple[Optional[str], str]:
+    def _parse_version_spec(self, spec: str) -> tuple[str | None, str]:
         """Parse a version specifier."""
         spec = spec.strip()
 

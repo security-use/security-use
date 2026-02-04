@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 
 class SBOMFormat(Enum):
@@ -22,11 +21,11 @@ class SBOMComponent:
     name: str
     version: str
     ecosystem: str
-    purl: Optional[str] = None
+    purl: str | None = None
     licenses: list[str] = field(default_factory=list)
     hashes: dict[str, str] = field(default_factory=dict)
-    supplier: Optional[str] = None
-    description: Optional[str] = None
+    supplier: str | None = None
+    description: str | None = None
     vulnerabilities: list[str] = field(default_factory=list)
 
 

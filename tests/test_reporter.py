@@ -48,7 +48,7 @@ def sample_iac_finding():
         line_number=10,
         description="S3 bucket is not encrypted at rest.",
         remediation="Enable server-side encryption.",
-        fix_code='server_side_encryption_configuration { ... }',
+        fix_code="server_side_encryption_configuration { ... }",
     )
 
 

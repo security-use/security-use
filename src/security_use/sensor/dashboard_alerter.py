@@ -3,7 +3,6 @@
 import logging
 import os
 from datetime import datetime
-from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -39,8 +38,8 @@ class DashboardAlerter:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        dashboard_url: Optional[str] = None,
+        api_key: str | None = None,
+        dashboard_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         retry_count: int = DEFAULT_RETRY_COUNT,
         circuit_failure_threshold: int = 5,
@@ -67,7 +66,7 @@ class DashboardAlerter:
 
         # Validate configuration
         self._config_valid = True
-        self._config_error: Optional[str] = None
+        self._config_error: str | None = None
 
         if not self.api_key:
             logger.warning(
@@ -96,8 +95,8 @@ class DashboardAlerter:
         )
 
         # Shared HTTP clients for connection reuse (lazy initialization)
-        self._async_client: Optional[httpx.AsyncClient] = None
-        self._sync_client: Optional[httpx.Client] = None
+        self._async_client: httpx.AsyncClient | None = None
+        self._sync_client: httpx.Client | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -105,7 +104,7 @@ class DashboardAlerter:
         return bool(self.api_key) and self._config_valid
 
     @property
-    def config_error(self) -> Optional[str]:
+    def config_error(self) -> str | None:
         """Get configuration error message if any."""
         return self._config_error
 

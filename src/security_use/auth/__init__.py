@@ -1,8 +1,8 @@
 """Authentication module for SecurityUse dashboard integration."""
 
-from .config import AuthConfig, AuthToken, UserInfo, get_config_dir
-from .oauth import OAuthFlow, OAuthError, DeviceCode
 from .client import DashboardClient
+from .config import AuthConfig, AuthToken, UserInfo, get_config_dir
+from .oauth import DeviceCode, OAuthError, OAuthFlow
 
 __all__ = [
     "AuthConfig",

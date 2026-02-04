@@ -3,8 +3,9 @@
 import asyncio
 import logging
 import threading
+from collections.abc import Callable, Coroutine
 from io import BytesIO
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any
 from urllib.parse import parse_qs
 
 from .alert_queue import get_alert_queue
@@ -149,16 +150,16 @@ class SecurityMiddleware:
     def __init__(
         self,
         app: Any,
-        api_key: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        api_key: str | None = None,
+        webhook_url: str | None = None,
         block_on_detection: bool = True,
-        excluded_paths: Optional[list[str]] = None,
-        watch_paths: Optional[list[str]] = None,
+        excluded_paths: list[str] | None = None,
+        watch_paths: list[str] | None = None,
         auto_detect_vulnerable: bool = False,
-        project_path: Optional[str] = None,
-        enabled_detectors: Optional[list[str]] = None,
+        project_path: str | None = None,
+        enabled_detectors: list[str] | None = None,
         rate_limit_threshold: int = 100,
-        config: Optional[SensorConfig] = None,
+        config: SensorConfig | None = None,
     ):
         """Initialize the security middleware.
 
@@ -205,8 +206,8 @@ class SecurityMiddleware:
         )
 
         # Set up alerters based on config
-        self.dashboard_alerter: Optional[DashboardAlerter] = None
-        self.webhook_alerter: Optional[WebhookAlerter] = None
+        self.dashboard_alerter: DashboardAlerter | None = None
+        self.webhook_alerter: WebhookAlerter | None = None
 
         if self.config.alert_mode in ("dashboard", "both"):
             self.dashboard_alerter = DashboardAlerter(
@@ -424,16 +425,16 @@ class FlaskSecurityMiddleware:
     def __init__(
         self,
         app: Any,
-        api_key: Optional[str] = None,
-        webhook_url: Optional[str] = None,
+        api_key: str | None = None,
+        webhook_url: str | None = None,
         block_on_detection: bool = True,
-        excluded_paths: Optional[list[str]] = None,
-        watch_paths: Optional[list[str]] = None,
+        excluded_paths: list[str] | None = None,
+        watch_paths: list[str] | None = None,
         auto_detect_vulnerable: bool = False,
-        project_path: Optional[str] = None,
-        enabled_detectors: Optional[list[str]] = None,
+        project_path: str | None = None,
+        enabled_detectors: list[str] | None = None,
         rate_limit_threshold: int = 100,
-        config: Optional[SensorConfig] = None,
+        config: SensorConfig | None = None,
     ):
         """Initialize the Flask security middleware.
 
@@ -480,8 +481,8 @@ class FlaskSecurityMiddleware:
         )
 
         # Set up alerters based on config
-        self.dashboard_alerter: Optional[DashboardAlerter] = None
-        self.webhook_alerter: Optional[WebhookAlerter] = None
+        self.dashboard_alerter: DashboardAlerter | None = None
+        self.webhook_alerter: WebhookAlerter | None = None
 
         if self.config.alert_mode in ("dashboard", "both"):
             self.dashboard_alerter = DashboardAlerter(

@@ -2,11 +2,9 @@
 
 import json
 import os
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Optional
+from dataclasses import asdict, dataclass
 from datetime import datetime
-
+from pathlib import Path
 
 # OAuth configuration
 OAUTH_CONFIG = {
@@ -49,10 +47,10 @@ class AuthToken:
     """OAuth token data."""
 
     access_token: str
-    refresh_token: Optional[str] = None
+    refresh_token: str | None = None
     token_type: str = "Bearer"
-    expires_at: Optional[str] = None
-    scope: Optional[str] = None
+    expires_at: str | None = None
+    scope: str | None = None
 
     def is_expired(self) -> bool:
         """Check if the token is expired."""
@@ -86,9 +84,9 @@ class UserInfo:
 
     user_id: str
     email: str
-    name: Optional[str] = None
-    org_id: Optional[str] = None
-    org_name: Optional[str] = None
+    name: str | None = None
+    org_id: str | None = None
+    org_name: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -110,8 +108,8 @@ class AuthConfig:
     """Manages authentication configuration and tokens."""
 
     def __init__(self):
-        self._token: Optional[AuthToken] = None
-        self._user: Optional[UserInfo] = None
+        self._token: AuthToken | None = None
+        self._user: UserInfo | None = None
         self._load()
 
     def _load(self) -> None:
@@ -143,12 +141,12 @@ class AuthConfig:
             os.chmod(token_file, 0o600)
 
     @property
-    def token(self) -> Optional[AuthToken]:
+    def token(self) -> AuthToken | None:
         """Get the current auth token."""
         return self._token
 
     @property
-    def user(self) -> Optional[UserInfo]:
+    def user(self) -> UserInfo | None:
         """Get the current user info."""
         return self._user
 
@@ -157,7 +155,7 @@ class AuthConfig:
         """Check if user is authenticated."""
         return self._token is not None and not self._token.is_expired()
 
-    def save_token(self, token: AuthToken, user: Optional[UserInfo] = None) -> None:
+    def save_token(self, token: AuthToken, user: UserInfo | None = None) -> None:
         """Save authentication token and user info."""
         self._token = token
         if user:
@@ -172,7 +170,7 @@ class AuthConfig:
         if token_file.exists():
             token_file.unlink()
 
-    def get_access_token(self) -> Optional[str]:
+    def get_access_token(self) -> str | None:
         """Get the access token if authenticated."""
         if self.is_authenticated and self._token:
             return self._token.access_token

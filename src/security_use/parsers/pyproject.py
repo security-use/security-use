@@ -1,7 +1,7 @@
 """Parser for pyproject.toml files (PEP 621 and Poetry formats)."""
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -107,7 +107,7 @@ class PyProjectParser(DependencyParser):
 
         return dependencies
 
-    def _parse_poetry_version(self, spec: str) -> tuple[Optional[str], str]:
+    def _parse_poetry_version(self, spec: str) -> tuple[str | None, str]:
         """Parse Poetry version specifier."""
         spec = spec.strip()
 
@@ -133,7 +133,7 @@ class PyProjectParser(DependencyParser):
 
         return None, spec
 
-    def _parse_requirement_string(self, req: str) -> Optional[Dependency]:
+    def _parse_requirement_string(self, req: str) -> Dependency | None:
         """Parse a PEP 508 requirement string."""
         req = req.strip()
         match = self.VERSION_RE.match(req)

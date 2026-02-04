@@ -2,7 +2,6 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -13,11 +12,11 @@ class SensorConfig:
     alert_mode: str = "dashboard"
 
     # Dashboard settings (preferred)
-    api_key: Optional[str] = None
-    dashboard_url: Optional[str] = None
+    api_key: str | None = None
+    dashboard_url: str | None = None
 
     # Webhook settings (legacy/fallback)
-    webhook_url: Optional[str] = None
+    webhook_url: str | None = None
     webhook_headers: dict[str, str] = field(default_factory=dict)
     webhook_retry_count: int = 2  # Reduced from 3 for faster failure recovery
     webhook_timeout: float = 2.0  # Reduced from 10.0 for production use
@@ -53,9 +52,9 @@ class SensorConfig:
     excluded_paths: list[str] = field(default_factory=list)  # Paths to skip
 
     # Selective monitoring
-    watch_paths: Optional[list[str]] = None  # Only monitor these paths (None = all)
+    watch_paths: list[str] | None = None  # Only monitor these paths (None = all)
     auto_detect_vulnerable: bool = False  # Auto-detect vulnerable endpoints
-    project_path: Optional[str] = None  # Project path for auto-detection
+    project_path: str | None = None  # Project path for auto-detection
 
     # Logging
     log_requests: bool = False  # Log all requests (not just attacks)
@@ -163,14 +162,14 @@ class SensorConfig:
 
 
 def create_config(
-    api_key: Optional[str] = None,
-    webhook_url: Optional[str] = None,
+    api_key: str | None = None,
+    webhook_url: str | None = None,
     block_on_detection: bool = True,
-    excluded_paths: Optional[list[str]] = None,
-    watch_paths: Optional[list[str]] = None,
+    excluded_paths: list[str] | None = None,
+    watch_paths: list[str] | None = None,
     auto_detect_vulnerable: bool = False,
-    project_path: Optional[str] = None,
-    enabled_detectors: Optional[list[str]] = None,
+    project_path: str | None = None,
+    enabled_detectors: list[str] | None = None,
     rate_limit_threshold: int = 100,
     **kwargs,
 ) -> SensorConfig:

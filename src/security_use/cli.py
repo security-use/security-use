@@ -2,15 +2,13 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
 
 from security_use import __version__
-from security_use.models import Severity, ScanResult
+from security_use.models import ScanResult, Severity
 from security_use.reporter import create_reporter
-
 
 console = Console()
 
@@ -56,7 +54,7 @@ def _filter_by_severity(result: ScanResult, threshold: Severity) -> ScanResult:
 def _output_result(
     result: ScanResult,
     format: str,
-    output: Optional[str],
+    output: str | None,
 ) -> None:
     """Output scan results in the specified format."""
     reporter = create_reporter(format)
@@ -73,7 +71,7 @@ def _output_result(
             console.print(report)
 
 
-def _get_git_info(path: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+def _get_git_info(path: str) -> tuple[str | None, str | None, str | None]:
     """Get git repository info (repo name, branch, commit) for the given path."""
     import subprocess
 
@@ -195,7 +193,7 @@ def scan() -> None:
     type=click.Path(),
     help="Write output to file",
 )
-def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> None:
+def scan_deps(path: str, format: str, severity: str, output: str | None) -> None:
     """Scan dependencies for known vulnerabilities.
 
     PATH is the file or directory to scan (default: current directory).
@@ -272,14 +270,14 @@ def scan_deps(path: str, format: str, severity: str, output: Optional[str]) -> N
     help="Filter by compliance framework",
 )
 def scan_iac(
-    path: str, format: str, severity: str, output: Optional[str], compliance: Optional[str]
+    path: str, format: str, severity: str, output: str | None, compliance: str | None
 ) -> None:
     """Scan Infrastructure as Code for security misconfigurations.
 
     PATH is the file or directory to scan (default: current directory).
     """
+    from security_use.compliance import ComplianceFramework, ComplianceMapper
     from security_use.iac_scanner import IaCScanner
-    from security_use.compliance import ComplianceMapper, ComplianceFramework
 
     is_machine_format = format in ("json", "sarif")
 
@@ -356,7 +354,7 @@ def scan_iac(
     type=click.Path(),
     help="Write output to file",
 )
-def scan_all(path: str, format: str, severity: str, output: Optional[str]) -> None:
+def scan_all(path: str, format: str, severity: str, output: str | None) -> None:
     """Scan both dependencies and IaC for security issues.
 
     PATH is the file or directory to scan (default: current directory).
@@ -430,8 +428,8 @@ def fix(path: str, dry_run: bool, deps_only: bool, iac_only: bool) -> None:
     PATH is the file or directory to scan and fix (default: current directory).
     """
     from security_use.dependency_scanner import DependencyScanner
-    from security_use.iac_scanner import IaCScanner
     from security_use.fixers.iac_fixer import IaCFixer
+    from security_use.iac_scanner import IaCScanner
 
     fix_deps = not iac_only
     fix_iac = not deps_only
@@ -616,7 +614,7 @@ def version() -> None:
     help="Only scan IaC files",
 )
 def ci(
-    path: str, fail_on: str, output: str, sarif_file: Optional[str], deps_only: bool, iac_only: bool
+    path: str, fail_on: str, output: str, sarif_file: str | None, deps_only: bool, iac_only: bool
 ) -> None:
     """Run security scan optimized for CI/CD pipelines.
 
@@ -709,7 +707,7 @@ def auth_login(no_browser: bool) -> None:
     This will open your browser to authenticate with security-use.dev.
     After authentication, scan results can be synced to your dashboard.
     """
-    from security_use.auth import OAuthFlow, OAuthError, AuthConfig
+    from security_use.auth import AuthConfig, OAuthError, OAuthFlow
 
     config = AuthConfig()
 
@@ -873,7 +871,7 @@ def sbom() -> None:
     is_flag=True,
     help="Include vulnerability information (VEX)",
 )
-def sbom_generate(path: str, format: str, output: Optional[str], include_vulns: bool) -> None:
+def sbom_generate(path: str, format: str, output: str | None, include_vulns: bool) -> None:
     """Generate an SBOM for the project.
 
     Scans dependency files and generates a Software Bill of Materials
@@ -881,7 +879,7 @@ def sbom_generate(path: str, format: str, output: Optional[str], include_vulns: 
 
     PATH is the directory to scan (default: current directory).
     """
-    from security_use.sbom import SBOMGenerator, SBOMFormat
+    from security_use.sbom import SBOMFormat, SBOMGenerator
 
     format_map = {
         "cyclonedx-json": SBOMFormat.CYCLONEDX_JSON,
@@ -916,7 +914,7 @@ def sbom_generate(path: str, format: str, output: Optional[str], include_vulns: 
     type=click.Path(),
     help="Write enriched SBOM to file",
 )
-def sbom_enrich(sbom_file: str, output: Optional[str]) -> None:
+def sbom_enrich(sbom_file: str, output: str | None) -> None:
     """Enrich an existing SBOM with vulnerability data.
 
     Adds VEX (Vulnerability Exploitability eXchange) information
@@ -990,7 +988,8 @@ def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes:
     """
     from rich.panel import Panel
     from rich.table import Table
-    from security_use.init import ProjectInitializer, Framework
+
+    from security_use.init import Framework, ProjectInitializer
 
     project_path = Path(path).resolve()
     initializer = ProjectInitializer(project_path)
@@ -1150,7 +1149,7 @@ def init(path: str, no_middleware: bool, no_precommit: bool, dry_run: bool, yes:
     default="low",
     help="Minimum severity to report",
 )
-def sync(path: str, project: Optional[str], severity: str) -> None:
+def sync(path: str, project: str | None, severity: str) -> None:
     """Scan and sync results to SecurityUse dashboard.
 
     This command scans the project and uploads the results to your
@@ -1158,9 +1157,9 @@ def sync(path: str, project: Optional[str], severity: str) -> None:
 
     Requires authentication. Run 'security-use auth login' first.
     """
+    from security_use.auth import AuthConfig, DashboardClient, OAuthError
     from security_use.dependency_scanner import DependencyScanner
     from security_use.iac_scanner import IaCScanner
-    from security_use.auth import AuthConfig, DashboardClient, OAuthError
 
     config = AuthConfig()
 

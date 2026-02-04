@@ -1,13 +1,12 @@
 """IaC scanner for detecting security misconfigurations."""
 
 from pathlib import Path
-from typing import Optional
 
-from security_use.models import IaCFinding, ScanResult
 from security_use.iac.base import IaCParser, IaCResource
-from security_use.iac.terraform import TerraformParser
 from security_use.iac.cloudformation import CloudFormationParser
 from security_use.iac.rules.registry import get_registry
+from security_use.iac.terraform import TerraformParser
+from security_use.models import IaCFinding, ScanResult
 
 
 class IaCScanner:
@@ -191,7 +190,7 @@ class IaCScanner:
         # to determine if it's CloudFormation
         return False
 
-    def _get_parser(self, file_path: str) -> Optional[IaCParser]:
+    def _get_parser(self, file_path: str) -> IaCParser | None:
         """Get the appropriate parser for a file.
 
         Args:

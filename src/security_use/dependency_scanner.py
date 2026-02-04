@@ -1,27 +1,26 @@
 """Dependency scanner for detecting vulnerable packages."""
 
 from pathlib import Path
-from typing import Optional
 
 from security_use.models import ScanResult, Vulnerability
 from security_use.parsers import (
+    ComposerLockParser,
+    ComposerParser,
+    CondaEnvironmentParser,
+    CsprojParser,
     Dependency,
     DependencyParser,
+    GradleParser,
     MavenParser,
     NpmLockParser,
     NpmParser,
+    PackagesConfigParser,
     PipfileParser,
+    PnpmLockParser,
     PoetryLockParser,
     PyProjectParser,
     RequirementsParser,
-    GradleParser,
     YarnLockParser,
-    PnpmLockParser,
-    CsprojParser,
-    PackagesConfigParser,
-    CondaEnvironmentParser,
-    ComposerParser,
-    ComposerLockParser,
 )
 from security_use.parsers.pipfile import PipfileLockParser
 
@@ -74,7 +73,7 @@ class DependencyScanner:
 
     def __init__(self) -> None:
         """Initialize the dependency scanner."""
-        self._osv_client: Optional["OSVClient"] = None
+        self._osv_client: OSVClient | None = None
 
     @property
     def osv_client(self) -> "OSVClient":
@@ -237,7 +236,7 @@ class DependencyScanner:
         search_dir(directory, 0)
         return files
 
-    def _get_parser(self, file_type: str) -> Optional[DependencyParser]:
+    def _get_parser(self, file_type: str) -> DependencyParser | None:
         """Get the appropriate parser for a file type.
 
         Args:

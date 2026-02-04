@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -14,7 +14,7 @@ class IaCResource:
     config: dict[str, Any]
     file_path: str
     line_number: int
-    end_line: Optional[int] = None
+    end_line: int | None = None
     provider: str = "unknown"
 
     def get_config(self, *keys: str, default: Any = None) -> Any:

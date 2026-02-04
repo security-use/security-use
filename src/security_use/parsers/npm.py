@@ -2,7 +2,6 @@
 
 import json
 import re
-from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -81,7 +80,7 @@ class NpmParser(DependencyParser):
 
         return dependencies
 
-    def _parse_version(self, version_spec: str) -> Optional[str]:
+    def _parse_version(self, version_spec: str) -> str | None:
         """Extract a concrete version from a version specifier.
 
         Args:

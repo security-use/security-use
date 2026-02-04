@@ -1,34 +1,33 @@
 """Tests for the security sensor module."""
 
-import pytest
+import os
+import tempfile
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-import tempfile
-import os
+
+import pytest
 
 from security_use.sensor import (
+    ActionTaken,
     AlertQueue,
+    AnalysisResult,
     AttackDetector,
     AttackType,
-    RequestData,
-    SecurityEvent,
-    MatchedPattern,
-    SensorConfig,
-    create_config,
-    RateLimiter,
-    WebhookAlerter,
-    AlertResponse,
-    ActionTaken,
-    DashboardAlerter,
-    VulnerableEndpointDetector,
-    EndpointInfo,
-    AnalysisResult,
-    detect_vulnerable_endpoints,
-    get_alert_queue,
     CircuitBreaker,
     CircuitState,
-    CircuitStats,
+    DashboardAlerter,
+    EndpointInfo,
+    MatchedPattern,
+    RateLimiter,
+    RequestData,
+    SecurityEvent,
+    SensorConfig,
+    VulnerableEndpointDetector,
+    WebhookAlerter,
+    create_config,
+    detect_vulnerable_endpoints,
     fire_and_forget,
+    get_alert_queue,
     get_alert_stats,
     reset_alert_stats,
 )
@@ -292,11 +291,7 @@ class TestAttackDetector:
         events = detector.analyze_request(request)
 
         # May have rate limit events, but no attack events
-        attack_events = [
-            e
-            for e in events
-            if e.event_type not in (AttackType.RATE_LIMIT_EXCEEDED,)
-        ]
+        attack_events = [e for e in events if e.event_type not in (AttackType.RATE_LIMIT_EXCEEDED,)]
         assert len(attack_events) == 0
 
     # Selective Detection Tests
@@ -524,7 +519,7 @@ class TestAttackDetector:
         request = RequestData(
             method="POST",
             path="/api/load",
-            body='pickle.loads(malicious_data)',
+            body="pickle.loads(malicious_data)",
             source_ip="10.0.0.1",
         )
 
@@ -1414,12 +1409,12 @@ class TestVulnerableEndpointDetector:
 
     def test_extract_imports(self, detector):
         """Test import extraction from Python code."""
-        code = '''
+        code = """
 import os
 from flask import Flask, request
 from sqlalchemy import create_engine
 import subprocess
-'''
+"""
         imports = detector._extract_imports(code)
 
         assert "os" in imports
@@ -1429,7 +1424,7 @@ import subprocess
 
     def test_find_fastapi_routes(self, detector):
         """Test finding FastAPI route decorators."""
-        code = '''
+        code = """
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -1441,7 +1436,7 @@ async def get_users():
 @app.post("/api/users")
 async def create_user(user: User):
     return user
-'''
+"""
         endpoints = detector._find_routes(code, "test.py", ["fastapi"])
 
         assert len(endpoints) == 2
@@ -1453,7 +1448,7 @@ async def create_user(user: User):
 
     def test_find_flask_routes(self, detector):
         """Test finding Flask route decorators."""
-        code = '''
+        code = """
 from flask import Flask
 
 app = Flask(__name__)
@@ -1465,7 +1460,7 @@ def search():
 @app.route("/api/login", methods=["POST"])
 def login():
     return {}
-'''
+"""
         endpoints = detector._find_routes(code, "test.py", ["flask"])
 
         assert len(endpoints) == 2
@@ -1510,7 +1505,7 @@ def login():
         """Test analyzing a temporary project directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a simple FastAPI app
-            app_code = '''
+            app_code = """
 from fastapi import FastAPI
 import subprocess
 
@@ -1524,7 +1519,7 @@ async def execute_command(cmd: str):
 @app.get("/api/users")
 async def get_users():
     return []
-'''
+"""
             app_path = os.path.join(tmpdir, "main.py")
             with open(app_path, "w") as f:
                 f.write(app_code)
@@ -1536,8 +1531,7 @@ async def get_users():
             # The /api/execute endpoint should be flagged as vulnerable
             # due to subprocess import and "exec" in path
             exec_endpoint = next(
-                (e for e in result.all_endpoints if e.path == "/api/execute"),
-                None
+                (e for e in result.all_endpoints if e.path == "/api/execute"), None
             )
             assert exec_endpoint is not None
             assert exec_endpoint.risk_score > 0.3
@@ -1545,7 +1539,7 @@ async def get_users():
     def test_get_watch_paths(self, detector):
         """Test getting watch paths for a project."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_code = '''
+            app_code = """
 from fastapi import FastAPI
 import pickle
 
@@ -1554,7 +1548,7 @@ app = FastAPI()
 @app.post("/api/deserialize")
 async def deserialize(data: bytes):
     return pickle.loads(data)
-'''
+"""
             app_path = os.path.join(tmpdir, "app.py")
             with open(app_path, "w") as f:
                 f.write(app_code)
@@ -1566,7 +1560,7 @@ async def deserialize(data: bytes):
     def test_detect_vulnerable_endpoints_convenience_function(self):
         """Test the convenience function."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_code = '''
+            app_code = """
 from flask import Flask, request
 import os
 
@@ -1575,7 +1569,7 @@ app = Flask(__name__)
 @app.route("/shell")
 def run_shell():
     os.system(request.args.get("cmd"))
-'''
+"""
             app_path = os.path.join(tmpdir, "app.py")
             with open(app_path, "w") as f:
                 f.write(app_code)
@@ -1746,6 +1740,7 @@ class TestAlertQueue:
 
     def test_queue_pending_count(self, sample_event):
         """Test pending_count property."""
+
         class NeverCalledAlerter:
             def send_alert_sync(self, event, action):
                 return True
@@ -1990,7 +1985,6 @@ class TestDjangoSecurityMiddleware:
     @pytest.fixture
     def mock_django_settings(self):
         """Create mock Django settings module."""
-        from types import SimpleNamespace
 
         # SimpleNamespace with getattr support for defaults
         class MockSettings:
@@ -2035,10 +2029,10 @@ class TestDjangoSecurityMiddleware:
 
     def test_django_middleware_init(self, mock_django_settings):
         """Test Django middleware initialization."""
-        from security_use.sensor.middleware import DjangoSecurityMiddleware
-
         # Mock Django settings
         import sys
+
+        from security_use.sensor.middleware import DjangoSecurityMiddleware
 
         mock_module = type(sys)("django.conf")
         mock_module.settings = mock_django_settings
@@ -2061,9 +2055,9 @@ class TestDjangoSecurityMiddleware:
 
     def test_django_middleware_excluded_path(self, mock_django_settings, mock_django_request):
         """Test that excluded paths are skipped."""
-        from security_use.sensor.middleware import DjangoSecurityMiddleware
-
         import sys
+
+        from security_use.sensor.middleware import DjangoSecurityMiddleware
 
         mock_module = type(sys)("django.conf")
         mock_module.settings = mock_django_settings
@@ -2101,9 +2095,9 @@ class TestDjangoSecurityMiddleware:
 
     def test_django_middleware_detects_attack(self, mock_django_settings, mock_django_request):
         """Test that Django middleware detects SQL injection."""
-        from security_use.sensor.middleware import DjangoSecurityMiddleware
-
         import sys
+
+        from security_use.sensor.middleware import DjangoSecurityMiddleware
 
         mock_module = type(sys)("django.conf")
         mock_django_settings.SECURITY_USE_BLOCK_ON_DETECTION = True

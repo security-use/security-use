@@ -9,7 +9,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +81,7 @@ class VulnerableEndpointDetector:
         "exec": [],
     }
 
-    def __init__(self, project_path: Optional[str] = None):
+    def __init__(self, project_path: str | None = None):
         """Initialize the endpoint detector.
 
         Args:
@@ -91,7 +90,7 @@ class VulnerableEndpointDetector:
         self.project_path = Path(project_path) if project_path else None
         self._vulnerable_packages: set[str] = set()
 
-    def analyze(self, path: Optional[str] = None) -> AnalysisResult:
+    def analyze(self, path: str | None = None) -> AnalysisResult:
         """Analyze a project for vulnerable endpoints.
 
         Args:
@@ -304,7 +303,7 @@ class VulnerableEndpointDetector:
 
     def get_watch_paths(
         self,
-        path: Optional[str] = None,
+        path: str | None = None,
         min_risk_score: float = 0.0,
         include_high_risk: bool = True,
     ) -> list[str]:

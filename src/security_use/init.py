@@ -9,7 +9,6 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -49,10 +48,10 @@ class ProjectInfo:
     has_dockerfile: bool = False
     has_pre_commit: bool = False
     has_security_use_config: bool = False
-    python_version: Optional[str] = None
+    python_version: str | None = None
 
     @property
-    def primary_app(self) -> Optional[AppFile]:
+    def primary_app(self) -> AppFile | None:
         """Get the primary app file (first FastAPI/Flask file found)."""
         for app in self.app_files:
             if app.framework in (Framework.FASTAPI, Framework.FLASK):
@@ -191,7 +190,7 @@ class ProjectDetector:
 
         return app_files
 
-    def _analyze_python_file(self, path: Path) -> Optional[AppFile]:
+    def _analyze_python_file(self, path: Path) -> AppFile | None:
         """Analyze a Python file for framework usage."""
         try:
             content = path.read_text()
@@ -276,7 +275,7 @@ class ConfigGenerator:
 
         return config
 
-    def write_config(self, info: ProjectInfo, path: Optional[Path] = None) -> Path:
+    def write_config(self, info: ProjectInfo, path: Path | None = None) -> Path:
         """Write configuration file."""
         config = self.generate_config(info)
         config_path = path or info.root / ".security-use.yaml"

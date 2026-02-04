@@ -1,20 +1,20 @@
 """Dashboard API client for uploading scan results."""
 
 import platform
-from typing import Optional
 
 import httpx
 
-from .config import OAUTH_CONFIG, AuthConfig
-from .oauth import OAuthFlow, OAuthError
 from security_use import __version__
 from security_use.models import ScanResult
+
+from .config import OAUTH_CONFIG, AuthConfig
+from .oauth import OAuthError, OAuthFlow
 
 
 class DashboardClient:
     """Client for the SecurityUse dashboard API."""
 
-    def __init__(self, config: Optional[AuthConfig] = None):
+    def __init__(self, config: AuthConfig | None = None):
         self.config = config or AuthConfig()
         self.api_url = OAUTH_CONFIG["api_url"]
         self.oauth = OAuthFlow(self.config)
@@ -57,9 +57,9 @@ class DashboardClient:
         self,
         result: ScanResult,
         scan_type: str = "deps",
-        repo_name: Optional[str] = None,
-        branch: Optional[str] = None,
-        commit_sha: Optional[str] = None,
+        repo_name: str | None = None,
+        branch: str | None = None,
+        commit_sha: str | None = None,
     ) -> dict:
         """Upload scan results to the dashboard.
 
@@ -154,7 +154,7 @@ class DashboardClient:
 
     def get_scans(
         self,
-        project_name: Optional[str] = None,
+        project_name: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
         """Get recent scans from the dashboard.

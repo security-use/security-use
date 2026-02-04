@@ -6,7 +6,6 @@ Generates and optionally applies fixes for IaC security issues.
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -20,7 +19,7 @@ class IaCFixResult:
     before: str = ""
     after: str = ""
     explanation: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
 
 # Fix mappings for known rules - using CKV rule IDs from scanner
@@ -116,7 +115,7 @@ class IaCFixer:
         file_path: str,
         rule_id: str,
         resource_name: str,
-        line_number: Optional[int] = None,
+        line_number: int | None = None,
         auto_apply: bool = True,
     ) -> IaCFixResult:
         """Fix an IaC security issue.

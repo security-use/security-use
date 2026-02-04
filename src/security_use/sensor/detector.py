@@ -6,7 +6,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from time import time
-from typing import Optional
 
 from .models import AttackType, MatchedPattern, RequestData, SecurityEvent
 
@@ -256,7 +255,7 @@ class RateLimiter:
             self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
             return len(self._requests[ip])
 
-    def reset(self, ip: Optional[str] = None) -> None:
+    def reset(self, ip: str | None = None) -> None:
         """Reset rate limit tracking."""
         with self._lock:
             if ip:
@@ -286,7 +285,7 @@ class AttackDetector:
 
     def __init__(
         self,
-        enabled_detectors: Optional[list[str]] = None,
+        enabled_detectors: list[str] | None = None,
         rate_limit_threshold: int = 100,
         rate_limit_window: int = 60,
         rate_limit_cleanup_interval: int = 300,
@@ -455,7 +454,7 @@ class AttackDetector:
         self,
         value: str,
         location: str,
-        field: Optional[str],
+        field: str | None,
         request: RequestData,
     ) -> list[SecurityEvent]:
         """Check a string value against all patterns."""

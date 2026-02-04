@@ -1,8 +1,8 @@
 """Kubernetes security rules for IaC scanning."""
 
-from security_use.models import Severity
 from security_use.iac.base import IaCResource
 from security_use.iac.rules.base import Rule, RuleResult
+from security_use.models import Severity
 
 
 class K8sRunAsRootRule(Rule):
@@ -450,8 +450,12 @@ class K8sAllowPrivilegeEscalationRule(Rule):
         containers = self._get_containers(resource)
 
         for container in containers:
-            security_context = container.get("securityContext", container.get("security_context", {}))
-            allow_escalation = security_context.get("allowPrivilegeEscalation", security_context.get("allow_privilege_escalation"))
+            security_context = container.get(
+                "securityContext", container.get("security_context", {})
+            )
+            allow_escalation = security_context.get(
+                "allowPrivilegeEscalation", security_context.get("allow_privilege_escalation")
+            )
 
             # If not explicitly set to false, it defaults to true
             if allow_escalation is not False:

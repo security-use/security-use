@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -117,7 +117,7 @@ class CloudFormationParser(IaCParser):
 
         return result
 
-    def _parse_template(self, content: str, file_path: str) -> Optional[dict[str, Any]]:
+    def _parse_template(self, content: str, file_path: str) -> dict[str, Any] | None:
         """Parse template content as YAML or JSON."""
         # Try YAML first with CloudFormation-aware loader
         try:

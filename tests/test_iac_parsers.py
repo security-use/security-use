@@ -1,21 +1,19 @@
 """Tests for IaC parsers."""
 
-import pytest
-
-from security_use.iac.terraform import TerraformParser
 from security_use.iac.cloudformation import CloudFormationParser
+from security_use.iac.terraform import TerraformParser
 
 
 class TestTerraformParser:
     """Tests for Terraform HCL2 parser."""
 
     def test_parse_simple_resource(self):
-        content = '''
+        content = """
 resource "aws_s3_bucket" "example" {
   bucket = "my-bucket"
   acl    = "private"
 }
-'''
+"""
         parser = TerraformParser()
         result = parser.parse(content, "main.tf")
 
@@ -26,7 +24,7 @@ resource "aws_s3_bucket" "example" {
         assert result.resources[0].provider == "aws"
 
     def test_parse_multiple_resources(self):
-        content = '''
+        content = """
 resource "aws_s3_bucket" "bucket1" {
   bucket = "bucket-1"
 }
@@ -34,16 +32,16 @@ resource "aws_s3_bucket" "bucket1" {
 resource "aws_s3_bucket" "bucket2" {
   bucket = "bucket-2"
 }
-'''
+"""
         parser = TerraformParser()
         result = parser.parse(content, "main.tf")
 
         assert len(result.resources) == 2
 
     def test_parse_data_source(self):
-        content = '''
+        content = """
 data "aws_caller_identity" "current" {}
-'''
+"""
         parser = TerraformParser()
         result = parser.parse(content, "main.tf")
 
@@ -52,7 +50,7 @@ data "aws_caller_identity" "current" {}
         assert result.resources[0].name == "current"
 
     def test_parse_variables(self):
-        content = '''
+        content = """
 variable "region" {
   default = "us-east-1"
 }
@@ -60,7 +58,7 @@ variable "region" {
 variable "environment" {
   type = string
 }
-'''
+"""
         parser = TerraformParser()
         result = parser.parse(content, "variables.tf")
 
@@ -69,11 +67,11 @@ variable "environment" {
         assert result.variables["region"]["default"] == "us-east-1"
 
     def test_parse_outputs(self):
-        content = '''
+        content = """
 output "bucket_arn" {
   value = aws_s3_bucket.example.arn
 }
-'''
+"""
         parser = TerraformParser()
         result = parser.parse(content, "outputs.tf")
 
@@ -96,11 +94,11 @@ output "bucket_arn" {
         assert parser._get_provider("unknown_resource") == "unknown"
 
     def test_find_resource_line(self):
-        content = '''# Comment
+        content = """# Comment
 resource "aws_s3_bucket" "example" {
   bucket = "my-bucket"
 }
-'''
+"""
         parser = TerraformParser()
         line = parser._find_resource_line(content, "aws_s3_bucket", "example")
         assert line == 2
@@ -110,14 +108,14 @@ class TestCloudFormationParser:
     """Tests for CloudFormation parser."""
 
     def test_parse_yaml_template(self):
-        content = '''
+        content = """
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   MyBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: my-bucket
-'''
+"""
         parser = CloudFormationParser()
         result = parser.parse(content, "template.yaml")
 
@@ -128,7 +126,7 @@ Resources:
         assert result.resources[0].provider == "aws"
 
     def test_parse_json_template(self):
-        content = '''
+        content = """
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Resources": {
@@ -140,7 +138,7 @@ Resources:
     }
   }
 }
-'''
+"""
         parser = CloudFormationParser()
         result = parser.parse(content, "template.json")
 
@@ -148,7 +146,7 @@ Resources:
         assert result.resources[0].name == "MyBucket"
 
     def test_parse_parameters(self):
-        content = '''
+        content = """
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   Environment:
@@ -157,7 +155,7 @@ Parameters:
 Resources:
   MyBucket:
     Type: AWS::S3::Bucket
-'''
+"""
         parser = CloudFormationParser()
         result = parser.parse(content, "template.yaml")
 
@@ -165,7 +163,7 @@ Resources:
         assert result.variables["Environment"]["Default"] == "dev"
 
     def test_parse_outputs(self):
-        content = '''
+        content = """
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   MyBucket:
@@ -173,7 +171,7 @@ Resources:
 Outputs:
   BucketArn:
     Value: !GetAtt MyBucket.Arn
-'''
+"""
         parser = CloudFormationParser()
         result = parser.parse(content, "template.yaml")
 
@@ -188,10 +186,10 @@ Outputs:
         assert len(result.resources) == 0
 
     def test_non_cloudformation_yaml(self):
-        content = '''
+        content = """
 name: my-config
 version: 1.0
-'''
+"""
         parser = CloudFormationParser()
         result = parser.parse(content, "config.yaml")
 
@@ -199,11 +197,11 @@ version: 1.0
         assert "not a valid CloudFormation template" in result.errors[0]
 
     def test_find_resource_line_yaml(self):
-        content = '''AWSTemplateFormatVersion: '2010-09-09'
+        content = """AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   MyBucket:
     Type: AWS::S3::Bucket
-'''
+"""
         parser = CloudFormationParser()
         line = parser._find_resource_line(content, "MyBucket")
         assert line == 3
@@ -237,9 +235,7 @@ class TestIaCResource:
             config={
                 "server_side_encryption_configuration": {
                     "rule": {
-                        "apply_server_side_encryption_by_default": {
-                            "sse_algorithm": "aws:kms"
-                        }
+                        "apply_server_side_encryption_by_default": {"sse_algorithm": "aws:kms"}
                     }
                 }
             },

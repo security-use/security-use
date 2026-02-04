@@ -1,17 +1,15 @@
 """Tests for IaC security rules."""
 
-import pytest
-
-from security_use.models import Severity
 from security_use.iac.base import IaCResource
-from security_use.iac.rules.registry import RuleRegistry, get_registry
 from security_use.iac.rules.aws import (
+    EBSEncryptionRule,
+    RDSEncryptionRule,
     S3BucketEncryptionRule,
     S3BucketPublicAccessRule,
     SecurityGroupOpenIngressRule,
-    RDSEncryptionRule,
-    EBSEncryptionRule,
 )
+from security_use.iac.rules.registry import RuleRegistry, get_registry
+from security_use.models import Severity
 
 
 class TestS3BucketEncryptionRule:
@@ -23,11 +21,7 @@ class TestS3BucketEncryptionRule:
             name="encrypted_bucket",
             config={
                 "server_side_encryption_configuration": {
-                    "rule": {
-                        "apply_server_side_encryption_by_default": {
-                            "sse_algorithm": "AES256"
-                        }
-                    }
+                    "rule": {"apply_server_side_encryption_by_default": {"sse_algorithm": "AES256"}}
                 }
             },
             file_path="main.tf",
@@ -65,11 +59,7 @@ class TestS3BucketEncryptionRule:
             config={
                 "BucketEncryption": {
                     "ServerSideEncryptionConfiguration": [
-                        {
-                            "ServerSideEncryptionByDefault": {
-                                "SSEAlgorithm": "AES256"
-                            }
-                        }
+                        {"ServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}
                     ]
                 }
             },
@@ -774,12 +764,14 @@ class TestK8sAllowPrivilegeEscalationRule:
             name="my_pod",
             config={
                 "spec": {
-                    "containers": [{
-                        "name": "app",
-                        "securityContext": {
-                            "allowPrivilegeEscalation": False,
+                    "containers": [
+                        {
+                            "name": "app",
+                            "securityContext": {
+                                "allowPrivilegeEscalation": False,
+                            },
                         }
-                    }]
+                    ]
                 }
             },
             file_path="pod.yaml",
@@ -798,12 +790,14 @@ class TestK8sAllowPrivilegeEscalationRule:
             name="my_pod",
             config={
                 "spec": {
-                    "containers": [{
-                        "name": "app",
-                        "securityContext": {
-                            "allowPrivilegeEscalation": True,
+                    "containers": [
+                        {
+                            "name": "app",
+                            "securityContext": {
+                                "allowPrivilegeEscalation": True,
+                            },
                         }
-                    }]
+                    ]
                 }
             },
             file_path="pod.yaml",
@@ -826,12 +820,7 @@ class TestK8sHostPathVolumeRule:
             name="my_pod",
             config={
                 "spec": {
-                    "volumes": [{
-                        "name": "data",
-                        "persistentVolumeClaim": {
-                            "claimName": "my-pvc"
-                        }
-                    }]
+                    "volumes": [{"name": "data", "persistentVolumeClaim": {"claimName": "my-pvc"}}]
                 }
             },
             file_path="pod.yaml",
@@ -848,16 +837,7 @@ class TestK8sHostPathVolumeRule:
         resource = IaCResource(
             resource_type="kubernetes_pod",
             name="my_pod",
-            config={
-                "spec": {
-                    "volumes": [{
-                        "name": "host-data",
-                        "hostPath": {
-                            "path": "/var/log"
-                        }
-                    }]
-                }
-            },
+            config={"spec": {"volumes": [{"name": "host-data", "hostPath": {"path": "/var/log"}}]}},
             file_path="pod.yaml",
             line_number=1,
         )

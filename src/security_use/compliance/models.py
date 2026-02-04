@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class ComplianceFramework(Enum):
@@ -27,7 +26,7 @@ class ComplianceControl:
     control_id: str
     title: str
     description: str
-    category: Optional[str] = None
+    category: str | None = None
 
 
 @dataclass

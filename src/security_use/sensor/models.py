@@ -1,10 +1,9 @@
 """Data models for security sensor events and alerts."""
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-import uuid
 
 
 class AttackType(Enum):
@@ -38,7 +37,7 @@ class RequestData:
     path: str
     query_params: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
-    body: Optional[str] = None
+    body: str | None = None
     source_ip: str = "unknown"
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -49,8 +48,8 @@ class MatchedPattern:
 
     pattern: str
     location: str  # "path", "query", "body", "header"
-    field: Optional[str] = None  # Specific field name if applicable
-    matched_value: Optional[str] = None
+    field: str | None = None  # Specific field name if applicable
+    matched_value: str | None = None
 
 
 @dataclass
@@ -65,7 +64,7 @@ class SecurityEvent:
     method: str
     matched_pattern: MatchedPattern
     request_headers: dict[str, str] = field(default_factory=dict)
-    request_body: Optional[str] = None
+    request_body: str | None = None
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     confidence: float = 0.9
     description: str = ""
@@ -99,7 +98,7 @@ class AlertPayload:
     event_id: str = field(default_factory=lambda: f"evt_{uuid.uuid4().hex[:12]}")
     event_type: str = "security_alert"
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    alert: Optional[SecurityEvent] = None
+    alert: SecurityEvent | None = None
     action_taken: ActionTaken = ActionTaken.LOGGED
 
     def to_dict(self) -> dict:
@@ -142,4 +141,4 @@ class AlertResponse:
     success: bool
     webhook_status: int
     retry_count: int
-    error_message: Optional[str] = None
+    error_message: str | None = None

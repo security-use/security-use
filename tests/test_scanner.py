@@ -1,9 +1,6 @@
 """Tests for the main scanner module."""
 
-import pytest
-
 from security_use import scan_dependencies, scan_iac
-from security_use.models import Severity
 
 
 class TestScanIaCFileContent:
@@ -11,11 +8,11 @@ class TestScanIaCFileContent:
 
     def test_scan_terraform_content(self):
         """Test scanning Terraform content directly."""
-        content = '''
+        content = """
 resource "aws_s3_bucket" "test" {
   bucket = "my-test-bucket"
 }
-'''
+"""
         result = scan_iac(file_content=content, file_type="terraform")
 
         # Should find at least the missing encryption finding
@@ -24,7 +21,7 @@ resource "aws_s3_bucket" "test" {
 
     def test_scan_terraform_with_public_acl(self):
         """Test detecting public S3 bucket ACL."""
-        content = '''
+        content = """
 resource "aws_s3_bucket" "public" {
   bucket = "public-bucket"
 }
@@ -33,7 +30,7 @@ resource "aws_s3_bucket_acl" "public" {
   bucket = aws_s3_bucket.public.id
   acl    = "public-read"
 }
-'''
+"""
         result = scan_iac(file_content=content, file_type="terraform")
 
         # Should find public access violation
@@ -41,11 +38,11 @@ resource "aws_s3_bucket_acl" "public" {
 
     def test_scan_terraform_file_type_variations(self):
         """Test various file_type values for Terraform."""
-        content = '''
+        content = """
 resource "aws_s3_bucket" "test" {
   bucket = "test-bucket"
 }
-'''
+"""
         # Test different file_type values
         for file_type in ["terraform", "tf", "TERRAFORM", "TF", "Terraform"]:
             result = scan_iac(file_content=content, file_type=file_type)
@@ -53,24 +50,24 @@ resource "aws_s3_bucket" "test" {
 
     def test_scan_terraform_default_file_type(self):
         """Test that default file_type is terraform."""
-        content = '''
+        content = """
 resource "aws_s3_bucket" "test" {
   bucket = "test-bucket"
 }
-'''
+"""
         result = scan_iac(file_content=content)  # No file_type specified
         assert len(result.iac_findings) >= 1
 
     def test_scan_cloudformation_content(self):
         """Test scanning CloudFormation content directly."""
-        content = '''
+        content = """
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   MyBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: my-cf-bucket
-'''
+"""
         result = scan_iac(file_content=content, file_type="cloudformation")
 
         # Should parse and potentially find findings
@@ -79,12 +76,12 @@ Resources:
 
     def test_scan_cloudformation_file_type_variations(self):
         """Test various file_type values for CloudFormation."""
-        content = '''
+        content = """
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
   MyBucket:
     Type: AWS::S3::Bucket
-'''
+"""
         for file_type in ["cloudformation", "cfn", "yaml", "yml"]:
             result = scan_iac(file_content=content, file_type=file_type)
             assert result is not None, f"Failed for file_type={file_type}"
@@ -135,11 +132,11 @@ class TestScanIaCPath:
     def test_scan_path_still_works(self, tmp_path):
         """Ensure path-based scanning still works after the fix."""
         tf_file = tmp_path / "main.tf"
-        tf_file.write_text('''
+        tf_file.write_text("""
 resource "aws_s3_bucket" "test" {
   bucket = "test-bucket"
 }
-''')
+""")
         result = scan_iac(path=str(tmp_path))
 
         assert len(result.iac_findings) >= 1

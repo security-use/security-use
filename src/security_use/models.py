@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class Severity(Enum):
@@ -15,7 +14,7 @@ class Severity(Enum):
     UNKNOWN = "UNKNOWN"
 
     @classmethod
-    def from_cvss(cls, score: Optional[float]) -> "Severity":
+    def from_cvss(cls, score: float | None) -> "Severity":
         """Convert CVSS score to severity level."""
         if score is None:
             return cls.UNKNOWN
@@ -39,8 +38,8 @@ class Vulnerability:
     title: str
     description: str
     affected_versions: str
-    fixed_version: Optional[str] = None
-    cvss_score: Optional[float] = None
+    fixed_version: str | None = None
+    cvss_score: float | None = None
     references: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -72,7 +71,7 @@ class IaCFinding:
     line_number: int
     description: str
     remediation: str
-    fix_code: Optional[str] = None
+    fix_code: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""

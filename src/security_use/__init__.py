@@ -2,14 +2,11 @@
 
 __version__ = "0.2.9"
 
-from security_use.scanner import scan_dependencies, scan_iac
-from security_use.models import Vulnerability, IaCFinding, ScanResult
-
 # Sensor imports (lazy-loaded for optional dependencies)
-from security_use import sensor
-
 # Auth imports
-from security_use import auth
+from security_use import auth, sensor
+from security_use.models import IaCFinding, ScanResult, Vulnerability
+from security_use.scanner import scan_dependencies, scan_iac
 
 __all__ = [
     "__version__",

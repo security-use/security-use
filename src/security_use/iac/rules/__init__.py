@@ -1,7 +1,5 @@
 """IaC security rules."""
 
-from security_use.iac.rules.base import Rule, RuleResult
-from security_use.iac.rules.registry import RuleRegistry, get_registry
 from security_use.iac.rules.aws import (
     ALBAccessLogsRule,
     CloudTrailEnabledRule,
@@ -27,6 +25,8 @@ from security_use.iac.rules.azure import (
     AzureStorageHTTPSRule,
     AzureStoragePublicAccessRule,
 )
+from security_use.iac.rules.base import Rule, RuleResult
+from security_use.iac.rules.registry import RuleRegistry, get_registry
 
 __all__ = [
     "Rule",

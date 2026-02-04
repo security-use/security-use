@@ -1,8 +1,8 @@
 """GCP security rules for IaC scanning."""
 
-from security_use.models import Severity
 from security_use.iac.base import IaCResource
 from security_use.iac.rules.base import Rule, RuleResult
+from security_use.models import Severity
 
 
 class GCSBucketPublicAccessRule(Rule):
@@ -315,8 +315,7 @@ class GCPComputeSSHKeysRule(Rule):
         "This can give unintended access to all project VMs."
     )
     REMEDIATION = (
-        "Block project-wide SSH keys by setting "
-        "block_project_ssh_keys = true in metadata."
+        "Block project-wide SSH keys by setting block_project_ssh_keys = true in metadata."
     )
     RESOURCE_TYPES = ["google_compute_instance"]
 

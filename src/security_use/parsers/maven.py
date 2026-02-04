@@ -2,7 +2,6 @@
 
 import re
 import xml.etree.ElementTree as ET
-from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -95,7 +94,7 @@ class MavenParser(DependencyParser):
 
         return re.sub(pattern, replace, value)
 
-    def _get_text(self, elem: ET.Element, tag: str) -> Optional[str]:
+    def _get_text(self, elem: ET.Element, tag: str) -> str | None:
         """Get text content of a child element."""
         child = elem.find(tag)
         if child is not None and child.text:

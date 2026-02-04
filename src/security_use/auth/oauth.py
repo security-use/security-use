@@ -2,13 +2,13 @@
 
 import time
 import webbrowser
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, Callable
 
 import httpx
 
-from .config import OAUTH_CONFIG, AuthToken, UserInfo, AuthConfig
+from .config import OAUTH_CONFIG, AuthConfig, AuthToken, UserInfo
 
 
 @dataclass
@@ -18,7 +18,7 @@ class DeviceCode:
     device_code: str
     user_code: str
     verification_uri: str
-    verification_uri_complete: Optional[str]
+    verification_uri_complete: str | None
     expires_in: int
     interval: int
 
@@ -54,7 +54,7 @@ class OAuthError(Exception):
 class OAuthFlow:
     """Handles OAuth device authorization flow."""
 
-    def __init__(self, config: Optional[AuthConfig] = None):
+    def __init__(self, config: AuthConfig | None = None):
         self.config = config or AuthConfig()
         self.client_id = OAUTH_CONFIG["client_id"]
         self.auth_url = OAUTH_CONFIG["auth_url"]
@@ -102,7 +102,7 @@ class OAuthFlow:
     def poll_for_token(
         self,
         device_code: DeviceCode,
-        on_status: Optional[Callable[[str], None]] = None,
+        on_status: Callable[[str], None] | None = None,
     ) -> AuthToken:
         """Poll the token endpoint until authorization is complete.
 
@@ -271,7 +271,7 @@ class OAuthFlow:
     def login(
         self,
         open_browser: bool = True,
-        on_status: Optional[Callable[[str], None]] = None,
+        on_status: Callable[[str], None] | None = None,
     ) -> tuple[AuthToken, UserInfo]:
         """Perform the full device authorization flow.
 

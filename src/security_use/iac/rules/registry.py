@@ -1,7 +1,5 @@
 """Rule registry for managing security rules."""
 
-from typing import Optional, Type
-
 from security_use.iac.rules.base import Rule
 
 
@@ -20,7 +18,7 @@ class RuleRegistry:
         """
         self._rules[rule.RULE_ID] = rule
 
-    def register_class(self, rule_class: Type[Rule]) -> None:
+    def register_class(self, rule_class: type[Rule]) -> None:
         """Register a rule class (instantiates it).
 
         Args:
@@ -29,7 +27,7 @@ class RuleRegistry:
         rule = rule_class()
         self.register(rule)
 
-    def get(self, rule_id: str) -> Optional[Rule]:
+    def get(self, rule_id: str) -> Rule | None:
         """Get a rule by ID.
 
         Args:
@@ -76,7 +74,7 @@ class RuleRegistry:
 
 
 # Global registry instance
-_registry: Optional[RuleRegistry] = None
+_registry: RuleRegistry | None = None
 
 
 def get_registry() -> RuleRegistry:
@@ -154,9 +152,9 @@ def _register_default_rules(registry: RuleRegistry) -> None:
         GCPComputeSSHKeysRule,
         GCPFirewallOpenIngressRule,
         GCPKMSKeyRotationRule,
+        GCPServiceAccountKeyRule,
         GCSBucketEncryptionRule,
         GCSBucketPublicAccessRule,
-        GCPServiceAccountKeyRule,
         GKEPrivateClusterRule,
     )
 

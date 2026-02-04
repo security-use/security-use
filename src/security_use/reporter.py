@@ -5,11 +5,11 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
-from security_use.models import ScanResult, Severity, Vulnerability, IaCFinding
+from security_use.models import IaCFinding, ScanResult, Severity, Vulnerability
 
 
 class ReportGenerator(ABC):

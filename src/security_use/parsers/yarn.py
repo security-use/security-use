@@ -1,7 +1,6 @@
 """Parser for Yarn lock files (yarn.lock)."""
 
 import re
-from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -19,9 +18,9 @@ class YarnLockParser(DependencyParser):
     def parse(self, content: str) -> list[Dependency]:
         """Parse yarn.lock content."""
         dependencies = []
-        current_package: Optional[str] = None
-        current_version_spec: Optional[str] = None
-        current_line: Optional[int] = None
+        current_package: str | None = None
+        current_version_spec: str | None = None
+        current_line: int | None = None
 
         for line_num, line in enumerate(content.splitlines(), start=1):
             # Check for package header

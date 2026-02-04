@@ -3,12 +3,11 @@
 Updates vulnerable dependencies to safe versions in requirements files.
 """
 
-import re
 import json
+import re
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -23,13 +22,13 @@ class FixResult:
     before: str = ""
     after: str = ""
     explanation: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class DependencyFixer:
     """Fixer for dependency vulnerabilities."""
 
-    def fix(self, path: str, package_name: str, target_version: Optional[str] = None) -> FixResult:
+    def fix(self, path: str, package_name: str, target_version: str | None = None) -> FixResult:
         """Fix a vulnerable dependency by updating its version.
 
         Args:
@@ -96,7 +95,7 @@ class DependencyFixer:
         except Exception as e:
             return FixResult(success=False, error=str(e))
 
-    def _find_package_file(self, path: Path, package_name: str) -> Optional[Path]:
+    def _find_package_file(self, path: Path, package_name: str) -> Path | None:
         """Find the dependency file containing the package."""
         patterns = ["requirements*.txt", "pyproject.toml", "Pipfile"]
 
@@ -108,7 +107,7 @@ class DependencyFixer:
 
         return None
 
-    def _get_package_version(self, content: str, package_name: str) -> Optional[str]:
+    def _get_package_version(self, content: str, package_name: str) -> str | None:
         """Extract the current version of a package from file content."""
         # Try requirements.txt format
         match = re.search(
@@ -171,7 +170,7 @@ class DependencyFixer:
 
         return "\n".join(diff_lines)
 
-    def _get_latest_version(self, package_name: str) -> Optional[str]:
+    def _get_latest_version(self, package_name: str) -> str | None:
         """Get the latest version of a package from PyPI."""
         try:
             url = f"https://pypi.org/pypi/{package_name}/json"

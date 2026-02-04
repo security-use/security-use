@@ -1,12 +1,10 @@
 """Tests for dependency file parsers."""
 
-import pytest
-
 from security_use.parsers import (
-    RequirementsParser,
-    PyProjectParser,
     PipfileParser,
     PoetryLockParser,
+    PyProjectParser,
+    RequirementsParser,
 )
 from security_use.parsers.pipfile import PipfileLockParser
 

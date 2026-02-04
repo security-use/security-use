@@ -1,7 +1,6 @@
 """Parser for requirements.txt files."""
 
 import re
-from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -30,7 +29,7 @@ class RequirementsParser(DependencyParser):
 
         return dependencies
 
-    def _parse_line(self, line: str, line_number: int) -> Optional[Dependency]:
+    def _parse_line(self, line: str, line_number: int) -> Dependency | None:
         """Parse a single line from requirements.txt."""
         # Remove comments and whitespace
         line = self.COMMENT_RE.sub("", line).strip()

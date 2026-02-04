@@ -1,7 +1,6 @@
 """Tests for CLI interface."""
 
 import json
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -27,12 +26,12 @@ def temp_requirements(tmp_path):
 def temp_terraform(tmp_path):
     """Create a temporary Terraform file."""
     tf_file = tmp_path / "main.tf"
-    tf_file.write_text('''
+    tf_file.write_text("""
 resource "aws_s3_bucket" "example" {
   bucket = "my-bucket"
   acl    = "public-read"
 }
-''')
+""")
     return tf_file
 
 
@@ -148,7 +147,10 @@ class TestFix:
 
     def test_fix_no_vulnerabilities(self, runner, tmp_path):
         result = runner.invoke(main, ["fix", str(tmp_path)])
-        assert "No dependency vulnerabilities found" in result.output or "No fixes were applied" in result.output
+        assert (
+            "No dependency vulnerabilities found" in result.output
+            or "No fixes were applied" in result.output
+        )
 
 
 class TestOutputFile:
@@ -225,9 +227,7 @@ class TestCICommand:
     def test_ci_sarif_file(self, runner, tmp_path):
         """Test CI writes SARIF to file."""
         sarif_file = tmp_path / "results.sarif"
-        result = runner.invoke(
-            main, ["ci", str(tmp_path), "--sarif-file", str(sarif_file)]
-        )
+        result = runner.invoke(main, ["ci", str(tmp_path), "--sarif-file", str(sarif_file)])
         assert result.exit_code == 0
         assert sarif_file.exists()
         # Verify SARIF content

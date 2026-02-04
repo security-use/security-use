@@ -3,7 +3,7 @@
 import hashlib
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -153,7 +153,7 @@ class OSVClient:
 
         return results
 
-    def get_vulnerability(self, vuln_id: str) -> Optional[dict[str, Any]]:
+    def get_vulnerability(self, vuln_id: str) -> dict[str, Any] | None:
         """Get details for a specific vulnerability.
 
         Args:
@@ -178,7 +178,7 @@ class OSVClient:
 
     def get_fix_version(
         self, vulnerability_id: str, package: str, ecosystem: str = "PyPI"
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get the recommended fix version for a vulnerability.
 
         Args:
@@ -271,14 +271,14 @@ class OSVClient:
 
         return Severity.UNKNOWN
 
-    def _get_cvss_score(self, vuln: dict[str, Any]) -> Optional[float]:
+    def _get_cvss_score(self, vuln: dict[str, Any]) -> float | None:
         """Extract CVSS score from vulnerability data."""
         for sev in vuln.get("severity", []):
             if sev.get("type") == "CVSS_V3":
                 return self._parse_cvss_score(sev.get("score", ""))
         return None
 
-    def _parse_cvss_score(self, score_str: str) -> Optional[float]:
+    def _parse_cvss_score(self, score_str: str) -> float | None:
         """Parse CVSS score from vector or score string."""
         if not score_str:
             return None
@@ -293,7 +293,7 @@ class OSVClient:
         except ValueError:
             return None
 
-    def _get_fixed_version(self, vuln: dict[str, Any], package: str) -> Optional[str]:
+    def _get_fixed_version(self, vuln: dict[str, Any], package: str) -> str | None:
         """Extract fixed version from vulnerability data."""
         for affected in vuln.get("affected", []):
             pkg = affected.get("package", {})
@@ -346,7 +346,7 @@ class OSVClient:
         key_str = f"{ecosystem}:{normalized}:{version}"
         return hashlib.sha256(key_str.encode()).hexdigest()[:16]
 
-    def _get_cached(self, key: str) -> Optional[Any]:
+    def _get_cached(self, key: str) -> Any | None:
         """Get value from cache if not expired."""
         entry = self._cache.get(key)
         if entry is None:

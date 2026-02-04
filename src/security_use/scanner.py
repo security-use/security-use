@@ -1,15 +1,14 @@
 """Main scanner interface for security_use."""
 
 from pathlib import Path
-from typing import Optional
 
 from security_use.models import ScanResult
 
 
 def scan_dependencies(
-    path: Optional[str] = None,
-    file_content: Optional[str] = None,
-    file_type: Optional[str] = None,
+    path: str | None = None,
+    file_content: str | None = None,
+    file_type: str | None = None,
 ) -> ScanResult:
     """Scan dependencies for known vulnerabilities.
 
@@ -33,9 +32,9 @@ def scan_dependencies(
 
 
 def scan_iac(
-    path: Optional[str] = None,
-    file_content: Optional[str] = None,
-    file_type: Optional[str] = None,
+    path: str | None = None,
+    file_content: str | None = None,
+    file_type: str | None = None,
 ) -> ScanResult:
     """Scan Infrastructure as Code for security misconfigurations.
 
@@ -71,7 +70,7 @@ def scan_iac(
     return scanner.scan_path(scan_path)
 
 
-def get_vulnerability_fix(vulnerability_id: str, package: str) -> Optional[str]:
+def get_vulnerability_fix(vulnerability_id: str, package: str) -> str | None:
     """Get the recommended fix version for a vulnerability.
 
     Args:

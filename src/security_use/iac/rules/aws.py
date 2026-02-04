@@ -1,8 +1,8 @@
 """AWS security rules for IaC scanning."""
 
-from security_use.models import Severity
 from security_use.iac.base import IaCResource
 from security_use.iac.rules.base import Rule, RuleResult
+from security_use.models import Severity
 
 
 class S3BucketEncryptionRule(Rule):
@@ -457,7 +457,7 @@ class SNSTopicEncryptionRule(Rule):
         if cf_kms_key:
             has_encryption = True
 
-        fix_code = 'kms_master_key_id = aws_kms_key.sns_key.id'
+        fix_code = "kms_master_key_id = aws_kms_key.sns_key.id"
 
         return self._create_result(has_encryption, resource, fix_code)
 
@@ -494,6 +494,6 @@ class SQSQueueEncryptionRule(Rule):
         if cf_kms_key or cf_sqs_sse:
             has_encryption = True
 
-        fix_code = 'sqs_managed_sse_enabled = true'
+        fix_code = "sqs_managed_sse_enabled = true"
 
         return self._create_result(has_encryption, resource, fix_code)
