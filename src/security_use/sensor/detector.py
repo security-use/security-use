@@ -73,6 +73,35 @@ COMMAND_INJECTION_PATTERNS = [
     (r"\|\s*(dir|type|del|copy|move|net)\b", "Windows pipe injection"),
 ]
 
+# SSRF (Server-Side Request Forgery) patterns
+SSRF_PATTERNS = [
+    (r"(?i)(localhost|127\.0\.0\.1|0\.0\.0\.0)", "Localhost access attempt"),
+    (r"(?i)(169\.254\.169\.254)", "AWS metadata endpoint access"),
+    (r"(?i)(metadata\.google\.internal)", "GCP metadata endpoint access"),
+    (r"(?i)(100\.100\.100\.200)", "Alibaba Cloud metadata access"),
+    (r"(?i)file://", "File protocol access"),
+    (r"(?i)gopher://", "Gopher protocol access"),
+    (r"(?i)dict://", "Dict protocol access"),
+    (r"(?i)ftp://", "FTP protocol access"),
+    (r"(?i)(10\.\d{1,3}\.\d{1,3}\.\d{1,3})", "Private IP access (10.x.x.x)"),
+    (r"(?i)(172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})", "Private IP access (172.16-31.x.x)"),
+    (r"(?i)(192\.168\.\d{1,3}\.\d{1,3})", "Private IP access (192.168.x.x)"),
+]
+
+# SSTI (Server-Side Template Injection) patterns
+SSTI_PATTERNS = [
+    (r"\{\{\s*[\d+\-*/]+\s*\}\}", "Jinja2 expression injection"),
+    (r"\{\{.*config.*\}\}", "Jinja2 config access"),
+    (r"\{\{.*__class__.*\}\}", "Python class introspection"),
+    (r"\{\{.*__mro__.*\}\}", "Python MRO traversal"),
+    (r"\{\{.*__globals__.*\}\}", "Python globals access"),
+    (r"\{\{.*__builtins__.*\}\}", "Python builtins access"),
+    (r"\$\{.*\}", "Expression language injection"),
+    (r"#\{.*\}", "Spring EL injection"),
+    (r"<%.*%>", "ERB/JSP template injection"),
+    (r"\{\{.*\|safe.*\}\}", "Template filter bypass attempt"),
+]
+
 # Suspicious headers
 SUSPICIOUS_HEADER_PATTERNS = [
     (r"(?i)(sqlmap|nikto|nmap|masscan|dirbuster|gobuster)", "Known attack tool"),
@@ -241,6 +270,8 @@ class AttackDetector:
             "xss",
             "path_traversal",
             "command_injection",
+            "ssrf",
+            "ssti",
             "rate_limit",
             "suspicious_headers",
         ]
@@ -302,6 +333,30 @@ class AttackDetector:
                     description=desc,
                 )
                 for p, desc in COMMAND_INJECTION_PATTERNS
+            ]
+
+        if "ssrf" in self.enabled_detectors:
+            patterns[AttackType.SSRF] = [
+                DetectionPattern(
+                    pattern=p,
+                    compiled=re.compile(p),
+                    attack_type=AttackType.SSRF,
+                    severity="HIGH",
+                    description=desc,
+                )
+                for p, desc in SSRF_PATTERNS
+            ]
+
+        if "ssti" in self.enabled_detectors:
+            patterns[AttackType.SSTI] = [
+                DetectionPattern(
+                    pattern=p,
+                    compiled=re.compile(p),
+                    attack_type=AttackType.SSTI,
+                    severity="HIGH",
+                    description=desc,
+                )
+                for p, desc in SSTI_PATTERNS
             ]
 
         if "suspicious_headers" in self.enabled_detectors:

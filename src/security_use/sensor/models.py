@@ -14,6 +14,8 @@ class AttackType(Enum):
     XSS = "xss"
     PATH_TRAVERSAL = "path_traversal"
     COMMAND_INJECTION = "command_injection"
+    SSRF = "ssrf"
+    SSTI = "ssti"
     RATE_LIMIT_EXCEEDED = "rate_limit_exceeded"
     SUSPICIOUS_HEADER = "suspicious_header"
 

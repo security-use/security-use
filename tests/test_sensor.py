@@ -318,6 +318,120 @@ class TestAttackDetector:
         assert len(sqli_events) > 0
         assert len(xss_events) == 0
 
+    # SSRF (Server-Side Request Forgery) Tests
+    def test_detect_localhost_ssrf(self, detector):
+        """Test detection of localhost SSRF."""
+        request = RequestData(
+            method="POST",
+            path="/api/fetch",
+            body="url=http://localhost:8080/admin",
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
+        assert len(ssrf_events) > 0
+
+    def test_detect_aws_metadata_ssrf(self, detector):
+        """Test detection of AWS metadata endpoint SSRF."""
+        request = RequestData(
+            method="GET",
+            path="/api/proxy",
+            query_params={"url": "http://169.254.169.254/latest/meta-data/"},
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
+        assert len(ssrf_events) > 0
+
+    def test_detect_private_ip_ssrf(self, detector):
+        """Test detection of private IP SSRF."""
+        request = RequestData(
+            method="POST",
+            path="/api/webhook",
+            body="callback=http://192.168.1.100/internal",
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
+        assert len(ssrf_events) > 0
+
+    def test_detect_file_protocol_ssrf(self, detector):
+        """Test detection of file:// protocol SSRF."""
+        request = RequestData(
+            method="GET",
+            path="/api/load",
+            query_params={"resource": "file:///etc/passwd"},
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
+        assert len(ssrf_events) > 0
+
+    # SSTI (Server-Side Template Injection) Tests
+    def test_detect_jinja2_ssti(self, detector):
+        """Test detection of Jinja2 template injection."""
+        request = RequestData(
+            method="POST",
+            path="/api/render",
+            body="template={{7*7}}",
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
+        assert len(ssti_events) > 0
+
+    def test_detect_jinja2_class_introspection(self, detector):
+        """Test detection of Python class introspection via SSTI."""
+        request = RequestData(
+            method="POST",
+            path="/api/template",
+            body='name={{"".__class__.__mro__[2].__subclasses__()}}',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
+        assert len(ssti_events) > 0
+
+    def test_detect_expression_language_ssti(self, detector):
+        """Test detection of expression language injection."""
+        request = RequestData(
+            method="GET",
+            path="/api/eval",
+            query_params={"expr": "${7*7}"},
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
+        assert len(ssti_events) > 0
+
+    def test_detect_config_access_ssti(self, detector):
+        """Test detection of config access via SSTI."""
+        request = RequestData(
+            method="POST",
+            path="/api/format",
+            body="text={{config.SECRET_KEY}}",
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
+        assert len(ssti_events) > 0
+
 
 class TestRateLimiter:
     """Tests for RateLimiter."""
