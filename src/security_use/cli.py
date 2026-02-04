@@ -871,14 +871,14 @@ def auth_token() -> None:
     config = AuthConfig()
 
     if not config.is_authenticated:
-        console.print("[red]Not logged in[/red]", err=True)
+        console.print("[red]Not logged in[/red]", style="red")
         sys.exit(1)
 
     token = config.get_access_token()
     if token:
         click.echo(token)
     else:
-        console.print("[red]No valid token available[/red]", err=True)
+        console.print("[red]No valid token available[/red]", style="red")
         sys.exit(1)
 
 
@@ -1271,10 +1271,9 @@ def sync(path: str, project: str | None, severity: str) -> None:
         client = DashboardClient(config)
         response = client.upload_scan(
             result=result,
-            project_name=project_name,
-            project_path=str(Path(path).resolve()),
+            repo_name=project_name or str(Path(path).resolve().name),
             branch=branch,
-            commit=commit,
+            commit_sha=commit,
         )
 
         console.print("[green]Scan uploaded successfully![/green]")
