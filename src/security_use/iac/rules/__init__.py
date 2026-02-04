@@ -16,12 +16,24 @@ from security_use.iac.rules.aws import (
     SQSQueueEncryptionRule,
     VPCFlowLogsRule,
 )
+from security_use.iac.rules.azure import (
+    AzureActivityLogRetentionRule,
+    AzureAppServiceHTTPSRule,
+    AzureFunctionAppHTTPSRule,
+    AzureKeyVaultSoftDeleteRule,
+    AzureNSGOpenIngressRule,
+    AzureSQLEncryptionRule,
+    AzureStorageEncryptionRule,
+    AzureStorageHTTPSRule,
+    AzureStoragePublicAccessRule,
+)
 
 __all__ = [
     "Rule",
     "RuleResult",
     "RuleRegistry",
     "get_registry",
+    # AWS Rules
     "ALBAccessLogsRule",
     "CloudTrailEnabledRule",
     "EBSEncryptionRule",
@@ -34,4 +46,14 @@ __all__ = [
     "SNSTopicEncryptionRule",
     "SQSQueueEncryptionRule",
     "VPCFlowLogsRule",
+    # Azure Rules
+    "AzureActivityLogRetentionRule",
+    "AzureAppServiceHTTPSRule",
+    "AzureFunctionAppHTTPSRule",
+    "AzureKeyVaultSoftDeleteRule",
+    "AzureNSGOpenIngressRule",
+    "AzureSQLEncryptionRule",
+    "AzureStorageEncryptionRule",
+    "AzureStorageHTTPSRule",
+    "AzureStoragePublicAccessRule",
 ]

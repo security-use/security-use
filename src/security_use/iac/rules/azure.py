@@ -236,3 +236,92 @@ class AzureActivityLogRetentionRule(Rule):
 }"""
 
         return self._create_result(passed, resource, fix_code)
+
+
+class AzureAppServiceHTTPSRule(Rule):
+    """Check that Azure App Service enforces HTTPS."""
+
+    RULE_ID = "CKV_AZURE_14"
+    TITLE = "App Service not enforcing HTTPS"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "Azure App Service does not enforce HTTPS-only connections. "
+        "This can expose data in transit to interception attacks."
+    )
+    REMEDIATION = "Enable HTTPS-only by setting https_only = true."
+    RESOURCE_TYPES = [
+        "azurerm_app_service",
+        "azurerm_linux_web_app",
+        "azurerm_windows_web_app",
+        "Microsoft.Web/sites",
+    ]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if App Service enforces HTTPS."""
+        https_only = resource.get_config("https_only", default=False)
+
+        # CloudFormation: httpsOnly in siteConfig
+        site_config = resource.get_config("siteConfig", default={})
+        if site_config.get("httpsOnly"):
+            https_only = True
+
+        fix_code = "https_only = true"
+
+        return self._create_result(https_only, resource, fix_code)
+
+
+class AzureStorageHTTPSRule(Rule):
+    """Check that Azure Storage requires HTTPS."""
+
+    RULE_ID = "CKV_AZURE_3"
+    TITLE = "Storage account allows HTTP"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "Azure Storage account allows unencrypted HTTP traffic. "
+        "This can expose data in transit to interception attacks."
+    )
+    REMEDIATION = "Enable HTTPS-only by setting enable_https_traffic_only = true."
+    RESOURCE_TYPES = [
+        "azurerm_storage_account",
+        "Microsoft.Storage/storageAccounts",
+    ]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if Storage requires HTTPS."""
+        # Default is true in newer versions, but we check explicitly
+        https_only = resource.get_config("enable_https_traffic_only", default=True)
+
+        # CloudFormation: supportsHttpsTrafficOnly
+        if resource.get_config("supportsHttpsTrafficOnly") is False:
+            https_only = False
+
+        fix_code = "enable_https_traffic_only = true"
+
+        return self._create_result(https_only, resource, fix_code)
+
+
+class AzureFunctionAppHTTPSRule(Rule):
+    """Check that Azure Function App enforces HTTPS."""
+
+    RULE_ID = "CKV_AZURE_70"
+    TITLE = "Function App not enforcing HTTPS"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "Azure Function App does not enforce HTTPS-only connections. "
+        "This can expose data in transit to interception attacks."
+    )
+    REMEDIATION = "Enable HTTPS-only by setting https_only = true."
+    RESOURCE_TYPES = [
+        "azurerm_function_app",
+        "azurerm_linux_function_app",
+        "azurerm_windows_function_app",
+        "Microsoft.Web/sites",
+    ]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if Function App enforces HTTPS."""
+        https_only = resource.get_config("https_only", default=False)
+
+        fix_code = "https_only = true"
+
+        return self._create_result(https_only, resource, fix_code)

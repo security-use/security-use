@@ -529,3 +529,112 @@ class TestLambdaVPCRule:
         assert result.passed is False
         assert result.fix_code is not None
         assert "vpc_config" in result.fix_code
+
+
+class TestAzureAppServiceHTTPSRule:
+    """Tests for Azure App Service HTTPS rule."""
+
+    def test_app_service_with_https_passes(self):
+        from security_use.iac.rules.azure import AzureAppServiceHTTPSRule
+
+        resource = IaCResource(
+            resource_type="azurerm_app_service",
+            name="my_app",
+            config={"https_only": True},
+            file_path="main.tf",
+            line_number=1,
+            provider="azure",
+        )
+
+        rule = AzureAppServiceHTTPSRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_app_service_without_https_fails(self):
+        from security_use.iac.rules.azure import AzureAppServiceHTTPSRule
+
+        resource = IaCResource(
+            resource_type="azurerm_app_service",
+            name="my_app",
+            config={"name": "my-app"},
+            file_path="main.tf",
+            line_number=1,
+            provider="azure",
+        )
+
+        rule = AzureAppServiceHTTPSRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+        assert "https_only" in result.fix_code
+
+
+class TestAzureStorageHTTPSRule:
+    """Tests for Azure Storage HTTPS rule."""
+
+    def test_storage_with_https_passes(self):
+        from security_use.iac.rules.azure import AzureStorageHTTPSRule
+
+        resource = IaCResource(
+            resource_type="azurerm_storage_account",
+            name="my_storage",
+            config={"enable_https_traffic_only": True},
+            file_path="main.tf",
+            line_number=1,
+            provider="azure",
+        )
+
+        rule = AzureStorageHTTPSRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_storage_without_https_fails(self):
+        from security_use.iac.rules.azure import AzureStorageHTTPSRule
+
+        resource = IaCResource(
+            resource_type="azurerm_storage_account",
+            name="my_storage",
+            config={"enable_https_traffic_only": False},
+            file_path="main.tf",
+            line_number=1,
+            provider="azure",
+        )
+
+        rule = AzureStorageHTTPSRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+
+
+class TestAzureFunctionAppHTTPSRule:
+    """Tests for Azure Function App HTTPS rule."""
+
+    def test_function_app_with_https_passes(self):
+        from security_use.iac.rules.azure import AzureFunctionAppHTTPSRule
+
+        resource = IaCResource(
+            resource_type="azurerm_function_app",
+            name="my_func",
+            config={"https_only": True},
+            file_path="main.tf",
+            line_number=1,
+            provider="azure",
+        )
+
+        rule = AzureFunctionAppHTTPSRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_function_app_without_https_fails(self):
+        from security_use.iac.rules.azure import AzureFunctionAppHTTPSRule
+
+        resource = IaCResource(
+            resource_type="azurerm_function_app",
+            name="my_func",
+            config={"name": "my-func"},
+            file_path="main.tf",
+            line_number=1,
+            provider="azure",
+        )
+
+        rule = AzureFunctionAppHTTPSRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False

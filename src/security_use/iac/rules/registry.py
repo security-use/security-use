@@ -125,20 +125,26 @@ def _register_default_rules(registry: RuleRegistry) -> None:
 
     # Azure Rules
     from security_use.iac.rules.azure import (
-        AzureStoragePublicAccessRule,
-        AzureStorageEncryptionRule,
+        AzureActivityLogRetentionRule,
+        AzureAppServiceHTTPSRule,
+        AzureFunctionAppHTTPSRule,
+        AzureKeyVaultSoftDeleteRule,
         AzureNSGOpenIngressRule,
         AzureSQLEncryptionRule,
-        AzureKeyVaultSoftDeleteRule,
-        AzureActivityLogRetentionRule,
+        AzureStorageEncryptionRule,
+        AzureStorageHTTPSRule,
+        AzureStoragePublicAccessRule,
     )
 
-    registry.register_class(AzureStoragePublicAccessRule)
-    registry.register_class(AzureStorageEncryptionRule)
+    registry.register_class(AzureActivityLogRetentionRule)
+    registry.register_class(AzureAppServiceHTTPSRule)
+    registry.register_class(AzureFunctionAppHTTPSRule)
+    registry.register_class(AzureKeyVaultSoftDeleteRule)
     registry.register_class(AzureNSGOpenIngressRule)
     registry.register_class(AzureSQLEncryptionRule)
-    registry.register_class(AzureKeyVaultSoftDeleteRule)
-    registry.register_class(AzureActivityLogRetentionRule)
+    registry.register_class(AzureStorageEncryptionRule)
+    registry.register_class(AzureStorageHTTPSRule)
+    registry.register_class(AzureStoragePublicAccessRule)
 
     # GCP Rules
     from security_use.iac.rules.gcp import (
