@@ -31,14 +31,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Runtime sensor now has 8 attack detection categories (was 6)
-- Test suite expanded to 284 tests (was 206)
+- Test suite expanded to 297 tests (was 206)
 - Codebase formatted with ruff for consistency
+- Total AWS IaC rules: 12 (was 8)
 
 ### Tests
 - Added 23 compliance module tests
 - Added 11 CI command tests
 - Added 6 init command tests
 - Added 8 SSRF/SSTI detection tests
+- Added 9 new AWS IaC rule tests
+- Added 4 Django middleware tests
+
+### New AWS IaC Rules
+- **CKV_AWS_91**: ALB/ELB access logging
+- **CKV_AWS_117**: Lambda function VPC configuration
+- **CKV_AWS_26**: SNS topic encryption
+- **CKV_AWS_27**: SQS queue encryption
+
+### Django Support
+- New `DjangoSecurityMiddleware` class for Django applications
+- Configurable via Django settings (`SECURITY_USE_*` variables)
+- Supports block_on_detection, excluded_paths, watch_paths
 
 ## [0.2.9] - Previous Release
 
