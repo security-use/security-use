@@ -335,3 +335,165 @@ class VPCFlowLogsRule(Rule):
 
         # Default to warning (not passed) to encourage flow logs
         return self._create_result(False, resource, fix_code)
+
+
+class ALBAccessLogsRule(Rule):
+    """Check that ALB/ELB has access logging enabled."""
+
+    RULE_ID = "CKV_AWS_91"
+    TITLE = "ALB/ELB without access logging"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "Application Load Balancer does not have access logging enabled. "
+        "Access logs provide detailed information about requests for security "
+        "analysis, audit trails, and troubleshooting."
+    )
+    REMEDIATION = (
+        "Enable access logging by adding an access_logs block to the "
+        "load balancer resource with an S3 bucket destination."
+    )
+    RESOURCE_TYPES = ["aws_lb", "aws_alb", "aws_elb", "AWS::ElasticLoadBalancingV2::LoadBalancer"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if load balancer has access logging enabled."""
+        has_logging = False
+
+        # Check for access_logs block
+        access_logs = resource.get_config("access_logs", default={})
+        if isinstance(access_logs, dict):
+            # Terraform: access_logs { enabled = true }
+            if access_logs.get("enabled", False):
+                has_logging = True
+            # Also check if bucket is specified (implicit enable)
+            if access_logs.get("bucket"):
+                has_logging = True
+
+        # CloudFormation: LoadBalancerAttributes
+        attributes = resource.get_config("LoadBalancerAttributes", default=[])
+        for attr in attributes:
+            if isinstance(attr, dict):
+                if attr.get("Key") == "access_logs.s3.enabled":
+                    if attr.get("Value") == "true":
+                        has_logging = True
+
+        fix_code = """access_logs {
+  bucket  = aws_s3_bucket.lb_logs.id
+  prefix  = "alb-logs"
+  enabled = true
+}"""
+
+        return self._create_result(has_logging, resource, fix_code)
+
+
+class LambdaVPCRule(Rule):
+    """Check that Lambda functions are configured with VPC settings when needed."""
+
+    RULE_ID = "CKV_AWS_117"
+    TITLE = "Lambda function not in VPC"
+    SEVERITY = Severity.LOW
+    DESCRIPTION = (
+        "Lambda function is not configured to run within a VPC. "
+        "For functions that access private resources (databases, internal APIs), "
+        "VPC configuration is recommended for network isolation."
+    )
+    REMEDIATION = (
+        "Add a vpc_config block to the Lambda function specifying "
+        "the subnet_ids and security_group_ids for private network access."
+    )
+    RESOURCE_TYPES = ["aws_lambda_function", "AWS::Lambda::Function"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if Lambda function has VPC configuration."""
+        has_vpc = False
+
+        # Terraform: vpc_config block
+        vpc_config = resource.get_config("vpc_config", default={})
+        if isinstance(vpc_config, dict):
+            if vpc_config.get("subnet_ids") or vpc_config.get("security_group_ids"):
+                has_vpc = True
+
+        # CloudFormation: VpcConfig
+        cf_vpc_config = resource.get_config("VpcConfig", default={})
+        if isinstance(cf_vpc_config, dict):
+            if cf_vpc_config.get("SubnetIds") or cf_vpc_config.get("SecurityGroupIds"):
+                has_vpc = True
+
+        fix_code = """vpc_config {
+  subnet_ids         = [aws_subnet.private.id]
+  security_group_ids = [aws_security_group.lambda_sg.id]
+}"""
+
+        # Note: VPC is not always required, so this is informational
+        return self._create_result(has_vpc, resource, fix_code)
+
+
+class SNSTopicEncryptionRule(Rule):
+    """Check that SNS topics have encryption enabled."""
+
+    RULE_ID = "CKV_AWS_26"
+    TITLE = "SNS topic without encryption"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "SNS topic does not have server-side encryption enabled. "
+        "Encrypting messages at rest protects sensitive data from unauthorized access."
+    )
+    REMEDIATION = (
+        "Enable server-side encryption by specifying a KMS key using "
+        "the kms_master_key_id attribute."
+    )
+    RESOURCE_TYPES = ["aws_sns_topic", "AWS::SNS::Topic"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if SNS topic has encryption enabled."""
+        has_encryption = False
+
+        # Terraform: kms_master_key_id
+        kms_key = resource.get_config("kms_master_key_id")
+        if kms_key:
+            has_encryption = True
+
+        # CloudFormation: KmsMasterKeyId
+        cf_kms_key = resource.get_config("KmsMasterKeyId")
+        if cf_kms_key:
+            has_encryption = True
+
+        fix_code = 'kms_master_key_id = aws_kms_key.sns_key.id'
+
+        return self._create_result(has_encryption, resource, fix_code)
+
+
+class SQSQueueEncryptionRule(Rule):
+    """Check that SQS queues have encryption enabled."""
+
+    RULE_ID = "CKV_AWS_27"
+    TITLE = "SQS queue without encryption"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "SQS queue does not have server-side encryption enabled. "
+        "Encrypting messages at rest protects sensitive data from unauthorized access."
+    )
+    REMEDIATION = (
+        "Enable server-side encryption by specifying a KMS key using "
+        "the kms_master_key_id attribute, or use SQS-managed encryption."
+    )
+    RESOURCE_TYPES = ["aws_sqs_queue", "AWS::SQS::Queue"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if SQS queue has encryption enabled."""
+        has_encryption = False
+
+        # Terraform: kms_master_key_id or sqs_managed_sse_enabled
+        kms_key = resource.get_config("kms_master_key_id")
+        sqs_sse = resource.get_config("sqs_managed_sse_enabled", default=False)
+        if kms_key or sqs_sse:
+            has_encryption = True
+
+        # CloudFormation: KmsMasterKeyId or SqsManagedSseEnabled
+        cf_kms_key = resource.get_config("KmsMasterKeyId")
+        cf_sqs_sse = resource.get_config("SqsManagedSseEnabled", default=False)
+        if cf_kms_key or cf_sqs_sse:
+            has_encryption = True
+
+        fix_code = 'sqs_managed_sse_enabled = true'
+
+        return self._create_result(has_encryption, resource, fix_code)

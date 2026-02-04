@@ -349,3 +349,183 @@ class TestRuleBase:
         )
 
         assert rule.applies_to(resource) is False
+
+
+class TestALBAccessLogsRule:
+    """Tests for ALB access logs rule."""
+
+    def test_alb_with_access_logs_passes(self):
+        from security_use.iac.rules.aws import ALBAccessLogsRule
+
+        resource = IaCResource(
+            resource_type="aws_lb",
+            name="my_alb",
+            config={
+                "access_logs": {
+                    "bucket": "my-logs-bucket",
+                    "enabled": True,
+                }
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = ALBAccessLogsRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_alb_without_access_logs_fails(self):
+        from security_use.iac.rules.aws import ALBAccessLogsRule
+
+        resource = IaCResource(
+            resource_type="aws_lb",
+            name="my_alb",
+            config={"name": "my-alb"},
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = ALBAccessLogsRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+        assert result.fix_code is not None
+        assert "access_logs" in result.fix_code
+
+
+class TestSNSTopicEncryptionRule:
+    """Tests for SNS topic encryption rule."""
+
+    def test_sns_with_encryption_passes(self):
+        from security_use.iac.rules.aws import SNSTopicEncryptionRule
+
+        resource = IaCResource(
+            resource_type="aws_sns_topic",
+            name="my_topic",
+            config={
+                "kms_master_key_id": "alias/aws/sns",
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = SNSTopicEncryptionRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_sns_without_encryption_fails(self):
+        from security_use.iac.rules.aws import SNSTopicEncryptionRule
+
+        resource = IaCResource(
+            resource_type="aws_sns_topic",
+            name="my_topic",
+            config={"name": "my-topic"},
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = SNSTopicEncryptionRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+
+
+class TestSQSQueueEncryptionRule:
+    """Tests for SQS queue encryption rule."""
+
+    def test_sqs_with_kms_encryption_passes(self):
+        from security_use.iac.rules.aws import SQSQueueEncryptionRule
+
+        resource = IaCResource(
+            resource_type="aws_sqs_queue",
+            name="my_queue",
+            config={
+                "kms_master_key_id": "alias/aws/sqs",
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = SQSQueueEncryptionRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_sqs_with_sse_encryption_passes(self):
+        from security_use.iac.rules.aws import SQSQueueEncryptionRule
+
+        resource = IaCResource(
+            resource_type="aws_sqs_queue",
+            name="my_queue",
+            config={
+                "sqs_managed_sse_enabled": True,
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = SQSQueueEncryptionRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_sqs_without_encryption_fails(self):
+        from security_use.iac.rules.aws import SQSQueueEncryptionRule
+
+        resource = IaCResource(
+            resource_type="aws_sqs_queue",
+            name="my_queue",
+            config={"name": "my-queue"},
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = SQSQueueEncryptionRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+
+
+class TestLambdaVPCRule:
+    """Tests for Lambda VPC rule."""
+
+    def test_lambda_with_vpc_passes(self):
+        from security_use.iac.rules.aws import LambdaVPCRule
+
+        resource = IaCResource(
+            resource_type="aws_lambda_function",
+            name="my_function",
+            config={
+                "vpc_config": {
+                    "subnet_ids": ["subnet-123"],
+                    "security_group_ids": ["sg-123"],
+                }
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = LambdaVPCRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_lambda_without_vpc_fails(self):
+        from security_use.iac.rules.aws import LambdaVPCRule
+
+        resource = IaCResource(
+            resource_type="aws_lambda_function",
+            name="my_function",
+            config={"function_name": "my-function"},
+            file_path="main.tf",
+            line_number=1,
+            provider="aws",
+        )
+
+        rule = LambdaVPCRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+        assert result.fix_code is not None
+        assert "vpc_config" in result.fix_code

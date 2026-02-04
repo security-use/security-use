@@ -96,23 +96,31 @@ def _register_default_rules(registry: RuleRegistry) -> None:
     """Register all default rules."""
     # AWS Rules
     from security_use.iac.rules.aws import (
+        ALBAccessLogsRule,
+        CloudTrailEnabledRule,
+        EBSEncryptionRule,
+        IAMUserMFARule,
+        LambdaVPCRule,
+        RDSEncryptionRule,
         S3BucketEncryptionRule,
         S3BucketPublicAccessRule,
         SecurityGroupOpenIngressRule,
-        IAMUserMFARule,
-        RDSEncryptionRule,
-        EBSEncryptionRule,
-        CloudTrailEnabledRule,
+        SNSTopicEncryptionRule,
+        SQSQueueEncryptionRule,
         VPCFlowLogsRule,
     )
 
+    registry.register_class(ALBAccessLogsRule)
+    registry.register_class(CloudTrailEnabledRule)
+    registry.register_class(EBSEncryptionRule)
+    registry.register_class(IAMUserMFARule)
+    registry.register_class(LambdaVPCRule)
+    registry.register_class(RDSEncryptionRule)
     registry.register_class(S3BucketEncryptionRule)
     registry.register_class(S3BucketPublicAccessRule)
     registry.register_class(SecurityGroupOpenIngressRule)
-    registry.register_class(IAMUserMFARule)
-    registry.register_class(RDSEncryptionRule)
-    registry.register_class(EBSEncryptionRule)
-    registry.register_class(CloudTrailEnabledRule)
+    registry.register_class(SNSTopicEncryptionRule)
+    registry.register_class(SQSQueueEncryptionRule)
     registry.register_class(VPCFlowLogsRule)
 
     # Azure Rules
