@@ -13,6 +13,7 @@
   <a href="https://pypi.org/project/security-use/"><img src="https://img.shields.io/pypi/pyversions/security-use?color=5EEAD4&style=flat-square" alt="Python Versions"></a>
   <a href="https://github.com/security-use/security-use/blob/main/LICENSE"><img src="https://img.shields.io/github/license/security-use/security-use?color=5EEAD4&style=flat-square" alt="License"></a>
   <a href="https://github.com/security-use/security-use/actions"><img src="https://img.shields.io/github/actions/workflow/status/security-use/security-use/ci.yml?style=flat-square" alt="CI"></a>
+  <a href="https://codecov.io/gh/security-use/security-use"><img src="https://img.shields.io/codecov/c/github/security-use/security-use?color=5EEAD4&style=flat-square" alt="Coverage"></a>
 </p>
 
 <p align="center">
