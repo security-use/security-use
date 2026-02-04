@@ -111,6 +111,8 @@ app.add_middleware(
 - Cross-Site Scripting (`<script>`, `javascript:`, event handlers)
 - Path Traversal (`../`, `%2e%2e%2f`, etc.)
 - Command Injection (`;cat /etc/passwd`, backticks, `$()`)
+- SSRF (Server-Side Request Forgery) - localhost, cloud metadata endpoints, private IPs
+- SSTI (Server-Side Template Injection) - Jinja2, expression languages, Python introspection
 - Rate limit violations
 - Suspicious user agents (sqlmap, nikto, etc.)
 
