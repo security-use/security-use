@@ -76,7 +76,7 @@ Find security misconfigurations before they reach production.
 
 ### Runtime Security Sensor
 
-Real-time attack detection middleware for FastAPI and Flask applications with dashboard integration.
+Real-time attack detection middleware for FastAPI, Flask, and Django applications with dashboard integration.
 
 ```python
 from fastapi import FastAPI
@@ -205,7 +205,7 @@ cd your-project
 security-use init
 
 # That's it! Your app now has:
-# ✓ Runtime attack protection (FastAPI/Flask)
+# ✓ Runtime attack protection (FastAPI/Flask/Django)
 # ✓ Pre-commit security scanning
 # ✓ Configuration file for customization
 ```
@@ -324,6 +324,23 @@ app.wsgi_app = FlaskSecurityMiddleware(
 @app.route("/api/users")
 def get_users():
     return {"users": []}
+```
+
+**Django:**
+
+```python
+# settings.py
+MIDDLEWARE = [
+    'security_use.sensor.DjangoSecurityMiddleware',  # Add at top
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    # ... other middleware
+]
+
+# Optional configuration
+SECURITY_USE_API_KEY = "su_..."  # Dashboard integration
+SECURITY_USE_BLOCK_ON_DETECTION = True
+SECURITY_USE_EXCLUDED_PATHS = ['/health/', '/metrics/', '/admin/']
 ```
 
 **Programmatic Endpoint Analysis:**
