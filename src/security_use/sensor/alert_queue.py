@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 class Alerter(Protocol):
     """Protocol for alerters."""
 
-    def send_alert_sync(self, event: "SecurityEvent", action: "ActionTaken") -> bool: ...
+    def send_alert_sync(self, event: "SecurityEvent", action: "ActionTaken") -> bool:
+        """Send an alert synchronously. Returns True if successful."""
+        ...
 
 
 @dataclass
