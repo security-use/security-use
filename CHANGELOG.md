@@ -31,7 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Runtime sensor now has 8 attack detection categories (was 6)
-- Test suite expanded to 244 tests (was 206)
+- Test suite expanded to 284 tests (was 206)
+- Codebase formatted with ruff for consistency
+
+### Tests
+- Added 23 compliance module tests
+- Added 11 CI command tests
+- Added 6 init command tests
+- Added 8 SSRF/SSTI detection tests
 
 ## [0.2.9] - Previous Release
 
