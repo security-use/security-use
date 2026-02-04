@@ -244,3 +244,92 @@ class GCPAuditLoggingRule(Rule):
 }"""
 
         return self._create_result(False, resource, fix_code)
+
+
+class GKEPrivateClusterRule(Rule):
+    """Check that GKE clusters use private nodes."""
+
+    RULE_ID = "CKV_GCP_18"
+    TITLE = "GKE cluster without private nodes"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "GKE cluster is not configured with private nodes. "
+        "Private nodes provide better network isolation and security."
+    )
+    REMEDIATION = (
+        "Enable private nodes in the private_cluster_config block "
+        "to prevent nodes from having public IP addresses."
+    )
+    RESOURCE_TYPES = ["google_container_cluster"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if GKE cluster uses private nodes."""
+        private_config = resource.get_config("private_cluster_config", default={})
+        enable_private_nodes = private_config.get("enable_private_nodes", False)
+
+        fix_code = """private_cluster_config {
+  enable_private_nodes    = true
+  enable_private_endpoint = false
+  master_ipv4_cidr_block  = "172.16.0.0/28"
+}"""
+
+        return self._create_result(enable_private_nodes, resource, fix_code)
+
+
+class GCPCloudSQLSSLRule(Rule):
+    """Check that Cloud SQL requires SSL connections."""
+
+    RULE_ID = "CKV_GCP_6"
+    TITLE = "Cloud SQL without SSL enforcement"
+    SEVERITY = Severity.HIGH
+    DESCRIPTION = (
+        "Cloud SQL instance does not require SSL connections. "
+        "Unencrypted connections can expose data in transit."
+    )
+    REMEDIATION = "Enable require_ssl in the ip_configuration block."
+    RESOURCE_TYPES = ["google_sql_database_instance"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if Cloud SQL requires SSL."""
+        settings = resource.get_config("settings", default={})
+        ip_config = settings.get("ip_configuration", {})
+        require_ssl = ip_config.get("require_ssl", False)
+
+        fix_code = """settings {
+  ip_configuration {
+    require_ssl = true
+  }
+}"""
+
+        return self._create_result(require_ssl, resource, fix_code)
+
+
+class GCPComputeSSHKeysRule(Rule):
+    """Check that Compute instances don't use project-wide SSH keys."""
+
+    RULE_ID = "CKV_GCP_32"
+    TITLE = "Compute instance using project-wide SSH keys"
+    SEVERITY = Severity.MEDIUM
+    DESCRIPTION = (
+        "Compute instance uses project-wide SSH keys. "
+        "This can give unintended access to all project VMs."
+    )
+    REMEDIATION = (
+        "Block project-wide SSH keys by setting "
+        "block_project_ssh_keys = true in metadata."
+    )
+    RESOURCE_TYPES = ["google_compute_instance"]
+
+    def evaluate(self, resource: IaCResource) -> RuleResult:
+        """Check if instance blocks project-wide SSH keys."""
+        metadata = resource.get_config("metadata", default={})
+        block_keys = metadata.get("block-project-ssh-keys", "false")
+
+        # Can be true, "true", "TRUE", etc.
+        passed = str(block_keys).lower() == "true"
+
+        fix_code = """metadata = {
+  block-project-ssh-keys = "true"
+}"""
+
+        return self._create_result(passed, resource, fix_code)

@@ -638,3 +638,126 @@ class TestAzureFunctionAppHTTPSRule:
         rule = AzureFunctionAppHTTPSRule()
         result = rule.evaluate(resource)
         assert result.passed is False
+
+
+class TestGKEPrivateClusterRule:
+    """Tests for GKE private cluster rule."""
+
+    def test_gke_with_private_nodes_passes(self):
+        from security_use.iac.rules.gcp import GKEPrivateClusterRule
+
+        resource = IaCResource(
+            resource_type="google_container_cluster",
+            name="my_cluster",
+            config={
+                "private_cluster_config": {
+                    "enable_private_nodes": True,
+                }
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="gcp",
+        )
+
+        rule = GKEPrivateClusterRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_gke_without_private_nodes_fails(self):
+        from security_use.iac.rules.gcp import GKEPrivateClusterRule
+
+        resource = IaCResource(
+            resource_type="google_container_cluster",
+            name="my_cluster",
+            config={"name": "my-cluster"},
+            file_path="main.tf",
+            line_number=1,
+            provider="gcp",
+        )
+
+        rule = GKEPrivateClusterRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+        assert "private_cluster_config" in result.fix_code
+
+
+class TestGCPCloudSQLSSLRule:
+    """Tests for GCP Cloud SQL SSL rule."""
+
+    def test_sql_with_ssl_passes(self):
+        from security_use.iac.rules.gcp import GCPCloudSQLSSLRule
+
+        resource = IaCResource(
+            resource_type="google_sql_database_instance",
+            name="my_db",
+            config={
+                "settings": {
+                    "ip_configuration": {
+                        "require_ssl": True,
+                    }
+                }
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="gcp",
+        )
+
+        rule = GCPCloudSQLSSLRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_sql_without_ssl_fails(self):
+        from security_use.iac.rules.gcp import GCPCloudSQLSSLRule
+
+        resource = IaCResource(
+            resource_type="google_sql_database_instance",
+            name="my_db",
+            config={"settings": {}},
+            file_path="main.tf",
+            line_number=1,
+            provider="gcp",
+        )
+
+        rule = GCPCloudSQLSSLRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False
+
+
+class TestGCPComputeSSHKeysRule:
+    """Tests for GCP Compute SSH keys rule."""
+
+    def test_compute_blocking_project_keys_passes(self):
+        from security_use.iac.rules.gcp import GCPComputeSSHKeysRule
+
+        resource = IaCResource(
+            resource_type="google_compute_instance",
+            name="my_vm",
+            config={
+                "metadata": {
+                    "block-project-ssh-keys": "true",
+                }
+            },
+            file_path="main.tf",
+            line_number=1,
+            provider="gcp",
+        )
+
+        rule = GCPComputeSSHKeysRule()
+        result = rule.evaluate(resource)
+        assert result.passed is True
+
+    def test_compute_allowing_project_keys_fails(self):
+        from security_use.iac.rules.gcp import GCPComputeSSHKeysRule
+
+        resource = IaCResource(
+            resource_type="google_compute_instance",
+            name="my_vm",
+            config={"name": "my-vm"},
+            file_path="main.tf",
+            line_number=1,
+            provider="gcp",
+        )
+
+        rule = GCPComputeSSHKeysRule()
+        result = rule.evaluate(resource)
+        assert result.passed is False

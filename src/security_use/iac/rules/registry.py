@@ -148,22 +148,28 @@ def _register_default_rules(registry: RuleRegistry) -> None:
 
     # GCP Rules
     from security_use.iac.rules.gcp import (
-        GCSBucketPublicAccessRule,
-        GCSBucketEncryptionRule,
-        GCPFirewallOpenIngressRule,
-        GCPCloudSQLEncryptionRule,
-        GCPKMSKeyRotationRule,
-        GCPServiceAccountKeyRule,
         GCPAuditLoggingRule,
+        GCPCloudSQLEncryptionRule,
+        GCPCloudSQLSSLRule,
+        GCPComputeSSHKeysRule,
+        GCPFirewallOpenIngressRule,
+        GCPKMSKeyRotationRule,
+        GCSBucketEncryptionRule,
+        GCSBucketPublicAccessRule,
+        GCPServiceAccountKeyRule,
+        GKEPrivateClusterRule,
     )
 
-    registry.register_class(GCSBucketPublicAccessRule)
-    registry.register_class(GCSBucketEncryptionRule)
-    registry.register_class(GCPFirewallOpenIngressRule)
-    registry.register_class(GCPCloudSQLEncryptionRule)
-    registry.register_class(GCPKMSKeyRotationRule)
-    registry.register_class(GCPServiceAccountKeyRule)
     registry.register_class(GCPAuditLoggingRule)
+    registry.register_class(GCPCloudSQLEncryptionRule)
+    registry.register_class(GCPCloudSQLSSLRule)
+    registry.register_class(GCPComputeSSHKeysRule)
+    registry.register_class(GCPFirewallOpenIngressRule)
+    registry.register_class(GCPKMSKeyRotationRule)
+    registry.register_class(GCSBucketEncryptionRule)
+    registry.register_class(GCSBucketPublicAccessRule)
+    registry.register_class(GCPServiceAccountKeyRule)
+    registry.register_class(GKEPrivateClusterRule)
 
     # Kubernetes Rules
     from security_use.iac.rules.kubernetes import (
