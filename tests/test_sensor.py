@@ -432,6 +432,107 @@ class TestAttackDetector:
         ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
         assert len(ssti_events) > 0
 
+    # NoSQL Injection Tests
+    def test_detect_mongodb_where_injection(self, detector):
+        """Test detection of MongoDB $where injection."""
+        request = RequestData(
+            method="POST",
+            path="/api/users",
+            body='{"$where": "this.password == \'admin\'"}',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        nosql_events = [e for e in events if e.event_type == AttackType.NOSQL_INJECTION]
+        assert len(nosql_events) > 0
+
+    def test_detect_mongodb_operator_injection(self, detector):
+        """Test detection of MongoDB operator injection."""
+        request = RequestData(
+            method="POST",
+            path="/api/login",
+            body='{"username": "admin", "password": {"$ne": ""}}',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        nosql_events = [e for e in events if e.event_type == AttackType.NOSQL_INJECTION]
+        assert len(nosql_events) > 0
+
+    # XXE (XML External Entity) Tests
+    def test_detect_xxe_entity_declaration(self, detector):
+        """Test detection of XXE entity declaration."""
+        request = RequestData(
+            method="POST",
+            path="/api/xml",
+            body='<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        xxe_events = [e for e in events if e.event_type == AttackType.XXE]
+        assert len(xxe_events) > 0
+
+    def test_detect_xxe_file_access(self, detector):
+        """Test detection of XXE file protocol access."""
+        request = RequestData(
+            method="POST",
+            path="/api/import",
+            body='<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/shadow">]>',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        xxe_events = [e for e in events if e.event_type == AttackType.XXE]
+        assert len(xxe_events) > 0
+
+    # Deserialization Attack Tests
+    def test_detect_java_serialized_object(self, detector):
+        """Test detection of Java serialized object."""
+        request = RequestData(
+            method="POST",
+            path="/api/deserialize",
+            body="data=rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcA...",
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        deser_events = [e for e in events if e.event_type == AttackType.DESERIALIZATION]
+        assert len(deser_events) > 0
+
+    def test_detect_php_serialized_object(self, detector):
+        """Test detection of PHP serialized object."""
+        request = RequestData(
+            method="POST",
+            path="/api/user",
+            body='O:4:"User":2:{s:4:"name";s:5:"admin";s:4:"role";s:5:"admin";}',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        deser_events = [e for e in events if e.event_type == AttackType.DESERIALIZATION]
+        assert len(deser_events) > 0
+
+    def test_detect_python_pickle_attack(self, detector):
+        """Test detection of Python pickle attack patterns."""
+        request = RequestData(
+            method="POST",
+            path="/api/load",
+            body='pickle.loads(malicious_data)',
+            source_ip="10.0.0.1",
+        )
+
+        events = detector.analyze_request(request)
+
+        deser_events = [e for e in events if e.event_type == AttackType.DESERIALIZATION]
+        assert len(deser_events) > 0
+
 
 class TestRateLimiter:
     """Tests for RateLimiter."""

@@ -102,6 +102,45 @@ SSTI_PATTERNS = [
     (r"\{\{.*\|safe.*\}\}", "Template filter bypass attempt"),
 ]
 
+# NoSQL Injection patterns (MongoDB, etc.)
+NOSQL_INJECTION_PATTERNS = [
+    (r"\$where\s*:", "MongoDB $where injection"),
+    (r"\$gt\s*:", "MongoDB comparison operator injection"),
+    (r"\$lt\s*:", "MongoDB comparison operator injection"),
+    (r"\$ne\s*:", "MongoDB not-equal injection"),
+    (r"\$regex\s*:", "MongoDB regex injection"),
+    (r"\$or\s*:\s*\[", "MongoDB $or injection"),
+    (r"\$and\s*:\s*\[", "MongoDB $and injection"),
+    (r"(?i)[\'\"]?\$[a-z]+[\'\"]?\s*:", "Generic MongoDB operator injection"),
+    (r"(?i)\.find\s*\(\s*\{", "MongoDB find injection attempt"),
+]
+
+# XXE (XML External Entity) patterns
+XXE_PATTERNS = [
+    (r"<!ENTITY\s+", "XML Entity declaration"),
+    (r"<!DOCTYPE[^>]*\[", "DOCTYPE with DTD"),
+    (r"SYSTEM\s+['\"]file://", "XXE file:// access"),
+    (r"SYSTEM\s+['\"]http://", "XXE http:// access"),
+    (r"SYSTEM\s+['\"]https://", "XXE https:// access"),
+    (r"PUBLIC\s+['\"]", "XXE PUBLIC declaration"),
+    (r"%[a-zA-Z_][a-zA-Z0-9_]*;", "Parameter entity reference"),
+    (r"&#x[0-9a-fA-F]+;", "Hex encoded entity (potential XXE)"),
+]
+
+# Deserialization attack patterns
+DESERIALIZATION_PATTERNS = [
+    (r"(?i)java\.lang\.Runtime", "Java Runtime class (RCE)"),
+    (r"(?i)java\.lang\.ProcessBuilder", "Java ProcessBuilder (RCE)"),
+    (r"(?i)rO0AB", "Java serialized object (base64)"),
+    (r"(?i)aced0005", "Java serialized object (hex)"),
+    (r"O:\d+:\"[^\"]+\"", "PHP serialized object"),
+    (r"a:\d+:\{", "PHP serialized array"),
+    (r"(?i)__reduce__", "Python pickle reduce"),
+    (r"(?i)pickle\.loads", "Python pickle load"),
+    (r"(?i)yaml\.unsafe_load", "Python YAML unsafe load"),
+    (r"(?i)cPickle", "Python cPickle (unsafe)"),
+]
+
 # Suspicious headers
 SUSPICIOUS_HEADER_PATTERNS = [
     (r"(?i)(sqlmap|nikto|nmap|masscan|dirbuster|gobuster)", "Known attack tool"),
@@ -267,11 +306,14 @@ class AttackDetector:
         """
         self.enabled_detectors = enabled_detectors or [
             "sqli",
+            "nosql",
             "xss",
             "path_traversal",
             "command_injection",
             "ssrf",
             "ssti",
+            "xxe",
+            "deserialization",
             "rate_limit",
             "suspicious_headers",
         ]
@@ -357,6 +399,42 @@ class AttackDetector:
                     description=desc,
                 )
                 for p, desc in SSTI_PATTERNS
+            ]
+
+        if "nosql" in self.enabled_detectors:
+            patterns[AttackType.NOSQL_INJECTION] = [
+                DetectionPattern(
+                    pattern=p,
+                    compiled=re.compile(p),
+                    attack_type=AttackType.NOSQL_INJECTION,
+                    severity="HIGH",
+                    description=desc,
+                )
+                for p, desc in NOSQL_INJECTION_PATTERNS
+            ]
+
+        if "xxe" in self.enabled_detectors:
+            patterns[AttackType.XXE] = [
+                DetectionPattern(
+                    pattern=p,
+                    compiled=re.compile(p, re.IGNORECASE),
+                    attack_type=AttackType.XXE,
+                    severity="HIGH",
+                    description=desc,
+                )
+                for p, desc in XXE_PATTERNS
+            ]
+
+        if "deserialization" in self.enabled_detectors:
+            patterns[AttackType.DESERIALIZATION] = [
+                DetectionPattern(
+                    pattern=p,
+                    compiled=re.compile(p),
+                    attack_type=AttackType.DESERIALIZATION,
+                    severity="CRITICAL",
+                    description=desc,
+                )
+                for p, desc in DESERIALIZATION_PATTERNS
             ]
 
         if "suspicious_headers" in self.enabled_detectors:
