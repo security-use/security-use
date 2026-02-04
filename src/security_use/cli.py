@@ -1,7 +1,10 @@
 """Command-line interface for security-use."""
 
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import click
 from rich.console import Console
@@ -150,12 +153,12 @@ def _auto_upload_results(result: ScanResult, scan_type: str, path: str) -> None:
         total = summary.get("total", result.total_issues)
         console.print(f"\n[dim]Results synced to dashboard ({total} finding(s))[/dim]")
 
-    except OAuthError:
-        # Silently ignore auth errors - user might have expired token
-        pass
-    except Exception:
+    except OAuthError as e:
+        # User might have expired token - log but don't fail
+        logger.debug("Auth error during auto-upload: %s", e)
+    except Exception as e:
         # Don't fail the scan if upload fails
-        pass
+        logger.debug("Upload error: %s", e)
 
 
 @click.group()
@@ -1344,8 +1347,8 @@ def sync(path: str, project: str | None, severity: str) -> None:
             ).stdout.strip()
             or None
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Could not get git info: %s", e)
 
     # Determine project name
     project_name = project or Path(path).resolve().name
