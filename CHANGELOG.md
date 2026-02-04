@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CKV_AZURE_14: App Service HTTPS enforcement
   - CKV_AZURE_3: Storage account HTTPS requirement
   - CKV_AZURE_70: Function App HTTPS enforcement
+- **SBOM vulnerability enrichment**: `security-use sbom enrich` command that:
+  - Queries OSV database for vulnerabilities in SBOM components
+  - Supports CycloneDX and SPDX formats
+  - Adds VEX (Vulnerability Exploitability eXchange) data
+  - Detects package ecosystem from PURL
 - **New GCP IaC rules**:
   - CKV_GCP_18: GKE private cluster configuration
   - CKV_GCP_6: Cloud SQL SSL enforcement
@@ -62,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI now reports test coverage to Codecov
 - Expanded test coverage for parsers, fixers, and IaC rules
 - Codebase formatted with ruff for consistency
+- Added logging to silent exception handlers for debuggability
+- Improved variable naming (no ambiguous single-letter names)
+- Proper exception chaining with `from` clause
 - Total AWS IaC rules: 12 (was 8)
 - Total Azure IaC rules: 9 (was 6)
 - Total GCP IaC rules: 10 (was 7)
