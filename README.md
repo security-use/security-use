@@ -20,6 +20,7 @@
   <a href="#installation">Installation</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
+  <a href="docs/">Documentation</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
