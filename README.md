@@ -501,6 +501,31 @@ output:
   verbose: false
 ```
 
+## Ecosystem
+
+SecurityUse is part of a larger ecosystem of security tools:
+
+### 🤖 MCP Server (for AI Assistants)
+
+The [security-use MCP server](https://github.com/security-use/mcp) gives AI assistants (Cursor, Claude, etc.) the ability to scan and fix vulnerabilities directly.
+
+```bash
+pip install security-use-mcp
+```
+
+### 📝 LSP Server (for Editors)
+
+The [security-use LSP server](https://github.com/security-use/lsp-server) provides real-time security feedback in VS Code and other editors:
+
+- Squiggly underlines on vulnerable dependencies
+- Hover information with CVE details
+- Quick-fix code actions
+- Compliance framework mapping
+
+```bash
+pip install security-lsp
+```
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
