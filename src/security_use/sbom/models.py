@@ -1,8 +1,9 @@
 """Data models for SBOM generation."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Optional
 
 
 class SBOMFormat(Enum):
@@ -21,11 +22,11 @@ class SBOMComponent:
     name: str
     version: str
     ecosystem: str
-    purl: str | None = None
+    purl: Optional[str] = None
     licenses: list[str] = field(default_factory=list)
     hashes: dict[str, str] = field(default_factory=dict)
-    supplier: str | None = None
-    description: str | None = None
+    supplier: Optional[str] = None
+    description: Optional[str] = None
     vulnerabilities: list[str] = field(default_factory=list)
 
 
@@ -36,4 +37,4 @@ class SBOMOutput:
     format: SBOMFormat
     content: str
     component_count: int
-    generated_at: datetime = field(default_factory=datetime.utcnow)
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

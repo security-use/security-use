@@ -1,8 +1,8 @@
 """Kubernetes security rules for IaC scanning."""
 
+from security_use.models import Severity
 from security_use.iac.base import IaCResource
 from security_use.iac.rules.base import Rule, RuleResult
-from security_use.models import Severity
 
 
 class K8sRunAsRootRule(Rule):
@@ -15,7 +15,9 @@ class K8sRunAsRootRule(Rule):
         "Container is configured to run as root user. Running as root "
         "increases the risk of container breakout and privilege escalation."
     )
-    REMEDIATION = "Set securityContext.runAsNonRoot to true and specify a non-root runAsUser."
+    REMEDIATION = (
+        "Set securityContext.runAsNonRoot to true and specify a non-root runAsUser."
+    )
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -60,19 +62,15 @@ class K8sRunAsRootRule(Rule):
                 runs_as_root = True
                 break
 
-            if (
-                not container_run_as_non_root
-                and run_as_user is None
-                and container_run_as_user is None
-            ):
+            if not container_run_as_non_root and run_as_user is None and container_run_as_user is None:
                 runs_as_root = True
                 break
 
         fix_code = None
         if runs_as_root:
-            fix_code = """securityContext:
+            fix_code = '''securityContext:
   runAsNonRoot: true
-  runAsUser: 1000"""
+  runAsUser: 1000'''
 
         return self._create_result(not runs_as_root, resource, fix_code)
 
@@ -108,7 +106,9 @@ class K8sPrivilegedContainerRule(Rule):
         "Container is running in privileged mode. Privileged containers have "
         "full access to the host and can escape container isolation."
     )
-    REMEDIATION = "Set securityContext.privileged to false."
+    REMEDIATION = (
+        "Set securityContext.privileged to false."
+    )
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -135,8 +135,8 @@ class K8sPrivilegedContainerRule(Rule):
 
         fix_code = None
         if is_privileged:
-            fix_code = """securityContext:
-  privileged: false"""
+            fix_code = '''securityContext:
+  privileged: false'''
 
         return self._create_result(not is_privileged, resource, fix_code)
 
@@ -162,7 +162,9 @@ class K8sResourceLimitsRule(Rule):
         "Container does not have resource limits defined. Without limits, "
         "a container can consume all available resources on the node."
     )
-    REMEDIATION = "Define resources.limits for CPU and memory."
+    REMEDIATION = (
+        "Define resources.limits for CPU and memory."
+    )
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -223,7 +225,9 @@ class K8sHostNetworkRule(Rule):
         "Pod is configured to use the host network namespace. This allows "
         "the container to access all network interfaces on the host."
     )
-    REMEDIATION = "Set hostNetwork to false unless absolutely necessary."
+    REMEDIATION = (
+        "Set hostNetwork to false unless absolutely necessary."
+    )
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -269,7 +273,9 @@ class K8sSecretsEnvVarsRule(Rule):
         "Secrets are exposed as environment variables. Environment variables "
         "can be logged or exposed through process listings. Use volume mounts instead."
     )
-    REMEDIATION = "Mount secrets as volumes instead of using envFrom with secretRef."
+    REMEDIATION = (
+        "Mount secrets as volumes instead of using envFrom with secretRef."
+    )
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -309,7 +315,7 @@ class K8sSecretsEnvVarsRule(Rule):
 
         fix_code = None
         if secrets_in_env:
-            fix_code = """# Mount secrets as volumes instead
+            fix_code = '''# Mount secrets as volumes instead
 volumeMounts:
   - name: secret-volume
     mountPath: "/etc/secrets"
@@ -317,7 +323,7 @@ volumeMounts:
 volumes:
   - name: secret-volume
     secret:
-      secretName: my-secret"""
+      secretName: my-secret'''
 
         return self._create_result(not secrets_in_env, resource, fix_code)
 
@@ -343,7 +349,9 @@ class K8sReadOnlyRootFilesystemRule(Rule):
         "Container does not have a read-only root filesystem. A read-only "
         "filesystem prevents malicious writes to the container filesystem."
     )
-    REMEDIATION = "Set securityContext.readOnlyRootFilesystem to true."
+    REMEDIATION = (
+        "Set securityContext.readOnlyRootFilesystem to true."
+    )
     RESOURCE_TYPES = [
         "kubernetes_pod",
         "kubernetes_deployment",
@@ -370,8 +378,8 @@ class K8sReadOnlyRootFilesystemRule(Rule):
 
         fix_code = None
         if not has_readonly:
-            fix_code = """securityContext:
-  readOnlyRootFilesystem: true"""
+            fix_code = '''securityContext:
+  readOnlyRootFilesystem: true'''
 
         return self._create_result(has_readonly, resource, fix_code)
 
@@ -397,7 +405,9 @@ class K8sNetworkPolicyRule(Rule):
         "No network policy is defined for this namespace. Without network "
         "policies, all pods can communicate with each other by default."
     )
-    REMEDIATION = "Define NetworkPolicy resources to restrict pod-to-pod communication."
+    REMEDIATION = (
+        "Define NetworkPolicy resources to restrict pod-to-pod communication."
+    )
     RESOURCE_TYPES = ["kubernetes_namespace", "Namespace"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -405,7 +415,7 @@ class K8sNetworkPolicyRule(Rule):
         # This is a best-effort check - we can't verify NetworkPolicy exists
         # from the namespace resource alone
 
-        fix_code = """apiVersion: networking.k8s.io/v1
+        fix_code = '''apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-all
@@ -413,125 +423,7 @@ spec:
   podSelector: {}
   policyTypes:
     - Ingress
-    - Egress"""
+    - Egress'''
 
         # Default to warning to encourage network policies
         return self._create_result(False, resource, fix_code)
-
-
-class K8sAllowPrivilegeEscalationRule(Rule):
-    """Check that containers don't allow privilege escalation."""
-
-    RULE_ID = "CKV_K8S_20"
-    TITLE = "Container allows privilege escalation"
-    SEVERITY = Severity.HIGH
-    DESCRIPTION = (
-        "Container security context allows privilege escalation. "
-        "This can allow a process to gain more privileges than its parent."
-    )
-    REMEDIATION = "Set allowPrivilegeEscalation to false in the container's securityContext."
-    RESOURCE_TYPES = [
-        "kubernetes_pod",
-        "kubernetes_deployment",
-        "kubernetes_stateful_set",
-        "kubernetes_daemon_set",
-        "kubernetes_job",
-        "kubernetes_cron_job",
-        "Pod",
-        "Deployment",
-        "StatefulSet",
-        "DaemonSet",
-        "Job",
-        "CronJob",
-    ]
-
-    def evaluate(self, resource: IaCResource) -> RuleResult:
-        """Check if containers allow privilege escalation."""
-        containers = self._get_containers(resource)
-
-        for container in containers:
-            security_context = container.get(
-                "securityContext", container.get("security_context", {})
-            )
-            allow_escalation = security_context.get(
-                "allowPrivilegeEscalation", security_context.get("allow_privilege_escalation")
-            )
-
-            # If not explicitly set to false, it defaults to true
-            if allow_escalation is not False:
-                fix_code = """securityContext:
-  allowPrivilegeEscalation: false"""
-                return self._create_result(False, resource, fix_code)
-
-        return self._create_result(True, resource)
-
-    def _get_containers(self, resource: IaCResource) -> list:
-        """Extract container specs from various resource types."""
-        # Direct pod spec
-        spec = resource.get_config("spec", default={})
-        containers = spec.get("containers", spec.get("container", []))
-
-        # Deployment/StatefulSet/etc have nested spec
-        if not containers:
-            template = spec.get("template", {})
-            inner_spec = template.get("spec", {})
-            containers = inner_spec.get("containers", inner_spec.get("container", []))
-
-        if isinstance(containers, dict):
-            containers = [containers]
-
-        return containers if containers else []
-
-
-class K8sHostPathVolumeRule(Rule):
-    """Check that pods don't use hostPath volumes."""
-
-    RULE_ID = "CKV_K8S_26"
-    TITLE = "Pod uses hostPath volume"
-    SEVERITY = Severity.HIGH
-    DESCRIPTION = (
-        "Pod uses hostPath volume which mounts a file or directory from "
-        "the host node. This can expose sensitive host files to containers."
-    )
-    REMEDIATION = "Use persistent volumes, ConfigMaps, or Secrets instead of hostPath volumes."
-    RESOURCE_TYPES = [
-        "kubernetes_pod",
-        "kubernetes_deployment",
-        "kubernetes_stateful_set",
-        "kubernetes_daemon_set",
-        "kubernetes_job",
-        "kubernetes_cron_job",
-        "Pod",
-        "Deployment",
-        "StatefulSet",
-        "DaemonSet",
-        "Job",
-        "CronJob",
-    ]
-
-    def evaluate(self, resource: IaCResource) -> RuleResult:
-        """Check if pod uses hostPath volumes."""
-        spec = resource.get_config("spec", default={})
-
-        # Check for volumes in spec
-        volumes = spec.get("volumes", spec.get("volume", []))
-
-        # Also check nested template spec
-        if not volumes:
-            template = spec.get("template", {})
-            inner_spec = template.get("spec", {})
-            volumes = inner_spec.get("volumes", inner_spec.get("volume", []))
-
-        if isinstance(volumes, dict):
-            volumes = [volumes]
-
-        for volume in volumes:
-            if "hostPath" in volume or "host_path" in volume:
-                fix_code = """# Use PersistentVolumeClaim instead of hostPath
-volumes:
-  - name: data
-    persistentVolumeClaim:
-      claimName: my-pvc"""
-                return self._create_result(False, resource, fix_code)
-
-        return self._create_result(True, resource)

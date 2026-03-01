@@ -2,23 +2,22 @@
 
 import time
 import webbrowser
-from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Callable
 
 import httpx
 
-from .config import OAUTH_CONFIG, AuthConfig, AuthToken, UserInfo
+from .config import OAUTH_CONFIG, AuthToken, UserInfo, AuthConfig
 
 
 @dataclass
 class DeviceCode:
     """Device code response from OAuth server."""
-
     device_code: str
     user_code: str
     verification_uri: str
-    verification_uri_complete: str | None
+    verification_uri_complete: Optional[str]
     expires_in: int
     interval: int
 
@@ -47,14 +46,13 @@ class DeviceCode:
 
 class OAuthError(Exception):
     """OAuth authentication error."""
-
     pass
 
 
 class OAuthFlow:
     """Handles OAuth device authorization flow."""
 
-    def __init__(self, config: AuthConfig | None = None):
+    def __init__(self, config: Optional[AuthConfig] = None):
         self.config = config or AuthConfig()
         self.client_id = OAUTH_CONFIG["client_id"]
         self.auth_url = OAUTH_CONFIG["auth_url"]
@@ -94,15 +92,17 @@ class OAuthFlow:
                 try:
                     return DeviceCode.from_dict(response.json())
                 except (ValueError, KeyError) as e:
-                    raise OAuthError(f"Invalid response from OAuth server: {e}") from e
+                    raise OAuthError(
+                        f"Invalid response from OAuth server: {e}"
+                    )
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error connecting to {self.auth_url}: {e}") from e
+            raise OAuthError(f"Network error connecting to {self.auth_url}: {e}")
 
     def poll_for_token(
         self,
         device_code: DeviceCode,
-        on_status: Callable[[str], None] | None = None,
+        on_status: Optional[Callable[[str], None]] = None,
     ) -> AuthToken:
         """Poll the token endpoint until authorization is complete.
 
@@ -141,7 +141,7 @@ class OAuthFlow:
                         expires_at = None
                         if "expires_in" in data:
                             expires_at = (
-                                datetime.utcnow() + timedelta(seconds=data["expires_in"])
+                                datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
                             ).isoformat()
 
                         return AuthToken(
@@ -176,9 +176,9 @@ class OAuthFlow:
                     else:
                         raise OAuthError(f"Authorization failed: {error}")
 
-                except httpx.RequestError:
+                except httpx.RequestError as e:
                     if on_status:
-                        on_status("Network error, retrying...")
+                        on_status(f"Network error, retrying...")
                     continue
 
         raise OAuthError("Authorization timed out. Please try again.")
@@ -221,7 +221,7 @@ class OAuthFlow:
                 )
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}") from e
+            raise OAuthError(f"Network error: {e}")
 
     def refresh_token(self, refresh_token: str) -> AuthToken:
         """Refresh an expired access token.
@@ -254,7 +254,7 @@ class OAuthFlow:
                 expires_at = None
                 if "expires_in" in data:
                     expires_at = (
-                        datetime.utcnow() + timedelta(seconds=data["expires_in"])
+                        datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
                     ).isoformat()
 
                 return AuthToken(
@@ -266,12 +266,12 @@ class OAuthFlow:
                 )
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}") from e
+            raise OAuthError(f"Network error: {e}")
 
     def login(
         self,
         open_browser: bool = True,
-        on_status: Callable[[str], None] | None = None,
+        on_status: Optional[Callable[[str], None]] = None,
     ) -> tuple[AuthToken, UserInfo]:
         """Perform the full device authorization flow.
 

@@ -2,8 +2,9 @@
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from security_use.dependency_scanner import DependencyScanner
 from security_use.parsers.base import Dependency
@@ -137,7 +138,7 @@ class SBOMGenerator:
             "serialNumber": f"urn:uuid:{uuid.uuid4()}",
             "version": 1,
             "metadata": {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 "tools": [
                     {
                         "vendor": "security-use",
@@ -177,7 +178,7 @@ class SBOMGenerator:
             f'     serialNumber="urn:uuid:{uuid.uuid4()}"',
             '     version="1">',
             "  <metadata>",
-            f"    <timestamp>{datetime.utcnow().isoformat()}Z</timestamp>",
+            f"    <timestamp>{datetime.now(timezone.utc).isoformat()}Z</timestamp>",
             "    <tools>",
             "      <tool>",
             "        <vendor>security-use</vendor>",
@@ -185,7 +186,7 @@ class SBOMGenerator:
             "        <version>0.2.9</version>",
             "      </tool>",
             "    </tools>",
-            '    <component type="application">',
+            "    <component type=\"application\">",
             f"      <name>{self._xml_escape(path.name)}</name>",
             "      <version>0.0.0</version>",
             "    </component>",
@@ -194,23 +195,19 @@ class SBOMGenerator:
         ]
 
         for c in components:
-            lines.extend(
-                [
-                    f'    <component type="library" bom-ref="{self._xml_escape(c.purl or c.name)}">',
-                    f"      <name>{self._xml_escape(c.name)}</name>",
-                    f"      <version>{self._xml_escape(c.version)}</version>",
-                ]
-            )
+            lines.extend([
+                f'    <component type="library" bom-ref="{self._xml_escape(c.purl or c.name)}">',
+                f"      <name>{self._xml_escape(c.name)}</name>",
+                f"      <version>{self._xml_escape(c.version)}</version>",
+            ])
             if c.purl:
                 lines.append(f"      <purl>{self._xml_escape(c.purl)}</purl>")
             lines.append("    </component>")
 
-        lines.extend(
-            [
-                "  </components>",
-                "</bom>",
-            ]
-        )
+        lines.extend([
+            "  </components>",
+            "</bom>",
+        ])
 
         return "\n".join(lines)
 
@@ -220,7 +217,7 @@ class SBOMGenerator:
         path: Path,
     ) -> str:
         """Generate SPDX 2.3 JSON format."""
-        spdx_id = "SPDXRef-DOCUMENT"
+        spdx_id = f"SPDXRef-DOCUMENT"
         doc_namespace = f"https://security-use.dev/sbom/{uuid.uuid4()}"
 
         packages = []
@@ -228,52 +225,42 @@ class SBOMGenerator:
 
         # Root package
         root_spdx_id = "SPDXRef-RootPackage"
-        packages.append(
-            {
-                "SPDXID": root_spdx_id,
-                "name": path.name,
-                "versionInfo": "0.0.0",
-                "downloadLocation": "NOASSERTION",
-                "filesAnalyzed": False,
-            }
-        )
+        packages.append({
+            "SPDXID": root_spdx_id,
+            "name": path.name,
+            "versionInfo": "0.0.0",
+            "downloadLocation": "NOASSERTION",
+            "filesAnalyzed": False,
+        })
 
-        relationships.append(
-            {
-                "spdxElementId": spdx_id,
-                "relatedSpdxElement": root_spdx_id,
-                "relationshipType": "DESCRIBES",
-            }
-        )
+        relationships.append({
+            "spdxElementId": spdx_id,
+            "relatedSpdxElement": root_spdx_id,
+            "relationshipType": "DESCRIBES",
+        })
 
         for i, c in enumerate(components):
             pkg_spdx_id = f"SPDXRef-Package-{i}"
-            packages.append(
-                {
-                    "SPDXID": pkg_spdx_id,
-                    "name": c.name,
-                    "versionInfo": c.version,
-                    "downloadLocation": "NOASSERTION",
-                    "filesAnalyzed": False,
-                    "externalRefs": [
-                        {
-                            "referenceCategory": "PACKAGE-MANAGER",
-                            "referenceType": "purl",
-                            "referenceLocator": c.purl,
-                        }
-                    ]
-                    if c.purl
-                    else [],
-                }
-            )
+            packages.append({
+                "SPDXID": pkg_spdx_id,
+                "name": c.name,
+                "versionInfo": c.version,
+                "downloadLocation": "NOASSERTION",
+                "filesAnalyzed": False,
+                "externalRefs": [
+                    {
+                        "referenceCategory": "PACKAGE-MANAGER",
+                        "referenceType": "purl",
+                        "referenceLocator": c.purl,
+                    }
+                ] if c.purl else [],
+            })
 
-            relationships.append(
-                {
-                    "spdxElementId": root_spdx_id,
-                    "relatedSpdxElement": pkg_spdx_id,
-                    "relationshipType": "DEPENDS_ON",
-                }
-            )
+            relationships.append({
+                "spdxElementId": root_spdx_id,
+                "relatedSpdxElement": pkg_spdx_id,
+                "relationshipType": "DEPENDS_ON",
+            })
 
         doc = {
             "spdxVersion": "SPDX-2.3",
@@ -282,7 +269,7 @@ class SBOMGenerator:
             "name": f"{path.name} SBOM",
             "documentNamespace": doc_namespace,
             "creationInfo": {
-                "created": datetime.utcnow().isoformat() + "Z",
+                "created": datetime.now(timezone.utc).isoformat() + "Z",
                 "creators": ["Tool: security-use-0.2.9"],
             },
             "packages": packages,
@@ -298,7 +285,7 @@ class SBOMGenerator:
     ) -> str:
         """Generate SPDX 2.3 tag-value format."""
         doc_namespace = f"https://security-use.dev/sbom/{uuid.uuid4()}"
-        timestamp = datetime.utcnow().isoformat() + "Z"
+        timestamp = datetime.now(timezone.utc).isoformat() + "Z"
 
         lines = [
             "SPDXVersion: SPDX-2.3",
@@ -323,26 +310,22 @@ class SBOMGenerator:
 
         for i, c in enumerate(components):
             pkg_id = f"SPDXRef-Package-{i}"
-            lines.extend(
-                [
-                    f"##### Package: {c.name}",
-                    "",
-                    f"PackageName: {c.name}",
-                    f"SPDXID: {pkg_id}",
-                    f"PackageVersion: {c.version}",
-                    "PackageDownloadLocation: NOASSERTION",
-                    "FilesAnalyzed: false",
-                ]
-            )
+            lines.extend([
+                f"##### Package: {c.name}",
+                "",
+                f"PackageName: {c.name}",
+                f"SPDXID: {pkg_id}",
+                f"PackageVersion: {c.version}",
+                "PackageDownloadLocation: NOASSERTION",
+                "FilesAnalyzed: false",
+            ])
             if c.purl:
                 lines.append(f"ExternalRef: PACKAGE-MANAGER purl {c.purl}")
-            lines.extend(
-                [
-                    "",
-                    f"Relationship: SPDXRef-RootPackage DEPENDS_ON {pkg_id}",
-                    "",
-                ]
-            )
+            lines.extend([
+                "",
+                f"Relationship: SPDXRef-RootPackage DEPENDS_ON {pkg_id}",
+                "",
+            ])
 
         return "\n".join(lines)
 

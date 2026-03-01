@@ -1,6 +1,7 @@
 """Parser for PHP Composer files (composer.json, composer.lock)."""
 
 import json
+from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -40,7 +41,7 @@ class ComposerParser(DependencyParser):
 
         return dependencies
 
-    def _extract_version(self, spec: str) -> str | None:
+    def _extract_version(self, spec: str) -> Optional[str]:
         """Extract a concrete version from a version specification."""
         # Handle various Composer version formats
         # ^1.0, ~1.0, >=1.0, 1.0.*, 1.0.0, etc.

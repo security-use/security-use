@@ -1,23 +1,19 @@
 """Data models for security sensor events and alerts."""
 
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Optional
+import uuid
 
 
 class AttackType(Enum):
     """Types of attacks that can be detected."""
 
     SQL_INJECTION = "sql_injection"
-    NOSQL_INJECTION = "nosql_injection"
     XSS = "xss"
     PATH_TRAVERSAL = "path_traversal"
     COMMAND_INJECTION = "command_injection"
-    SSRF = "ssrf"
-    SSTI = "ssti"
-    XXE = "xxe"
-    DESERIALIZATION = "deserialization"
     RATE_LIMIT_EXCEEDED = "rate_limit_exceeded"
     SUSPICIOUS_HEADER = "suspicious_header"
 
@@ -37,7 +33,7 @@ class RequestData:
     path: str
     query_params: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
-    body: str | None = None
+    body: Optional[str] = None
     source_ip: str = "unknown"
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -48,8 +44,8 @@ class MatchedPattern:
 
     pattern: str
     location: str  # "path", "query", "body", "header"
-    field: str | None = None  # Specific field name if applicable
-    matched_value: str | None = None
+    field: Optional[str] = None  # Specific field name if applicable
+    matched_value: Optional[str] = None
 
 
 @dataclass
@@ -64,7 +60,7 @@ class SecurityEvent:
     method: str
     matched_pattern: MatchedPattern
     request_headers: dict[str, str] = field(default_factory=dict)
-    request_body: str | None = None
+    request_body: Optional[str] = None
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     confidence: float = 0.9
     description: str = ""
@@ -97,8 +93,8 @@ class AlertPayload:
     version: str = "1.0"
     event_id: str = field(default_factory=lambda: f"evt_{uuid.uuid4().hex[:12]}")
     event_type: str = "security_alert"
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-    alert: SecurityEvent | None = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    alert: Optional[SecurityEvent] = None
     action_taken: ActionTaken = ActionTaken.LOGGED
 
     def to_dict(self) -> dict:
@@ -141,4 +137,4 @@ class AlertResponse:
     success: bool
     webhook_status: int
     retry_count: int
-    error_message: str | None = None
+    error_message: Optional[str] = None

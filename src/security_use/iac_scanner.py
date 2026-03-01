@@ -1,12 +1,13 @@
 """IaC scanner for detecting security misconfigurations."""
 
 from pathlib import Path
+from typing import Optional
 
+from security_use.models import IaCFinding, ScanResult
 from security_use.iac.base import IaCParser, IaCResource
+from security_use.iac.terraform import TerraformParser
 from security_use.iac.cloudformation import CloudFormationParser
 from security_use.iac.rules.registry import get_registry
-from security_use.iac.terraform import TerraformParser
-from security_use.models import IaCFinding, ScanResult
 
 
 class IaCScanner:
@@ -95,7 +96,9 @@ class IaCScanner:
 
         return result
 
-    def _evaluate_resources(self, resources: list[IaCResource], file_path: str) -> list[IaCFinding]:
+    def _evaluate_resources(
+        self, resources: list[IaCResource], file_path: str
+    ) -> list[IaCFinding]:
         """Evaluate security rules against resources.
 
         Args:
@@ -183,14 +186,17 @@ class IaCScanner:
 
         # Check filename patterns
         name = path.name.lower()
-        if any(pattern in name for pattern in ["template", "stack", "cloudformation", "cfn"]):
+        if any(
+            pattern in name
+            for pattern in ["template", "stack", "cloudformation", "cfn"]
+        ):
             return True
 
         # For JSON/YAML files in root, we'd need to peek at content
         # to determine if it's CloudFormation
         return False
 
-    def _get_parser(self, file_path: str) -> IaCParser | None:
+    def _get_parser(self, file_path: str) -> Optional[IaCParser]:
         """Get the appropriate parser for a file.
 
         Args:

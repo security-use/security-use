@@ -2,13 +2,14 @@
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import httpx
 
 from .circuit_breaker import CircuitBreaker, CircuitStats
-from .models import ActionTaken, SecurityEvent
+from .models import ActionTaken, AlertPayload, SecurityEvent
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,8 @@ class DashboardAlerter:
 
     def __init__(
         self,
-        api_key: str | None = None,
-        dashboard_url: str | None = None,
+        api_key: Optional[str] = None,
+        dashboard_url: Optional[str] = None,
         timeout: float = DEFAULT_TIMEOUT,
         retry_count: int = DEFAULT_RETRY_COUNT,
         circuit_failure_threshold: int = 5,
@@ -66,7 +67,7 @@ class DashboardAlerter:
 
         # Validate configuration
         self._config_valid = True
-        self._config_error: str | None = None
+        self._config_error: Optional[str] = None
 
         if not self.api_key:
             logger.warning(
@@ -95,8 +96,8 @@ class DashboardAlerter:
         )
 
         # Shared HTTP clients for connection reuse (lazy initialization)
-        self._async_client: httpx.AsyncClient | None = None
-        self._sync_client: httpx.Client | None = None
+        self._async_client: Optional[httpx.AsyncClient] = None
+        self._sync_client: Optional[httpx.Client] = None
 
     @property
     def is_configured(self) -> bool:
@@ -104,7 +105,7 @@ class DashboardAlerter:
         return bool(self.api_key) and self._config_valid
 
     @property
-    def config_error(self) -> str | None:
+    def config_error(self) -> Optional[str]:
         """Get configuration error message if any."""
         return self._config_error
 
@@ -159,9 +160,7 @@ class DashboardAlerter:
             Dictionary payload for the API.
         """
         # Get the attack type value (handle both enum and string)
-        attack_type = (
-            event.event_type.value if hasattr(event.event_type, "value") else str(event.event_type)
-        )
+        attack_type = event.event_type.value if hasattr(event.event_type, 'value') else str(event.event_type)
 
         # Get matched pattern info
         pattern_str = ""
@@ -177,9 +176,7 @@ class DashboardAlerter:
                 {
                     "finding_type": "attack",
                     "category": "runtime",
-                    "severity": event.severity.upper()
-                    if isinstance(event.severity, str)
-                    else event.severity,
+                    "severity": event.severity.upper() if isinstance(event.severity, str) else event.severity,
                     "title": f"{attack_type.replace('_', ' ').title()} attack detected",
                     "description": event.description,
                     "pattern": pattern_str,
@@ -189,21 +186,17 @@ class DashboardAlerter:
                     "metadata": {
                         "source_ip": event.source_ip,
                         "method": event.method,
-                        "user_agent": event.request_headers.get("user-agent")
-                        if event.request_headers
-                        else None,
-                        "action_taken": action.value if hasattr(action, "value") else str(action),
+                        "user_agent": event.request_headers.get("user-agent") if event.request_headers else None,
+                        "action_taken": action.value if hasattr(action, 'value') else str(action),
                         "confidence": event.confidence,
-                        "timestamp": event.timestamp.isoformat()
-                        if event.timestamp
-                        else datetime.utcnow().isoformat(),
-                    },
+                        "timestamp": event.timestamp.isoformat() if event.timestamp else datetime.now(timezone.utc).isoformat(),
+                    }
                 }
             ],
             "metadata": {
                 "sensor_version": "0.2.9",
                 "alert_type": "runtime_attack",
-            },
+            }
         }
 
     def _get_recommendation(self, attack_type: str) -> str:
@@ -218,7 +211,7 @@ class DashboardAlerter:
         }
         return recommendations.get(
             attack_type.lower().replace(" ", "_"),
-            "Review the attack pattern and implement appropriate input validation.",
+            "Review the attack pattern and implement appropriate input validation."
         )
 
     async def send_alert(
@@ -237,12 +230,17 @@ class DashboardAlerter:
         """
         # Early return if not configured (graceful degradation)
         if not self.is_configured:
-            logger.debug(f"Dashboard alerter not configured ({self._config_error}), skipping alert")
+            logger.debug(
+                f"Dashboard alerter not configured ({self._config_error}), "
+                "skipping alert"
+            )
             return False
 
         # Check circuit breaker first
         if not self._circuit_breaker.allow_request():
-            logger.debug(f"Circuit breaker open, skipping alert: {event.event_type.value}")
+            logger.debug(
+                f"Circuit breaker open, skipping alert: {event.event_type.value}"
+            )
             return False
 
         payload = self._build_payload(event, action)
@@ -302,12 +300,17 @@ class DashboardAlerter:
         """
         # Early return if not configured (graceful degradation)
         if not self.is_configured:
-            logger.debug(f"Dashboard alerter not configured ({self._config_error}), skipping alert")
+            logger.debug(
+                f"Dashboard alerter not configured ({self._config_error}), "
+                "skipping alert"
+            )
             return False
 
         # Check circuit breaker first
         if not self._circuit_breaker.allow_request():
-            logger.debug(f"Circuit breaker open, skipping alert: {event.event_type.value}")
+            logger.debug(
+                f"Circuit breaker open, skipping alert: {event.event_type.value}"
+            )
             return False
 
         payload = self._build_payload(event, action)

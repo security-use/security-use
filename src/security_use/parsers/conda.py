@@ -1,6 +1,7 @@
 """Parser for Conda environment files (environment.yml)."""
 
 import re
+from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -67,12 +68,10 @@ class CondaEnvironmentParser(DependencyParser):
 
         return dependencies
 
-    def _parse_pip_dep(self, line: str, line_num: int) -> Dependency | None:
+    def _parse_pip_dep(self, line: str, line_num: int) -> Optional[Dependency]:
         """Parse a pip dependency line from conda environment file."""
         # Format: - package==version or - package>=version
-        match = re.match(
-            r"^\s*-\s*(?P<name>[a-zA-Z0-9_-]+)(?P<spec>[=<>!]+(?P<version>[^\s#]+))?", line
-        )
+        match = re.match(r"^\s*-\s*(?P<name>[a-zA-Z0-9_-]+)(?P<spec>[=<>!]+(?P<version>[^\s#]+))?", line)
         if match:
             name = match.group("name")
             version = match.group("version")

@@ -2,9 +2,10 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any, Optional
 
-from security_use.iac.base import IaCResource
 from security_use.models import Severity
+from security_use.iac.base import IaCResource
 
 
 @dataclass
@@ -19,7 +20,7 @@ class RuleResult:
     resource_name: str
     description: str
     remediation: str
-    fix_code: str | None = None
+    fix_code: Optional[str] = None
 
 
 class Rule(ABC):
@@ -70,7 +71,7 @@ class Rule(ABC):
         self,
         passed: bool,
         resource: IaCResource,
-        fix_code: str | None = None,
+        fix_code: Optional[str] = None,
     ) -> RuleResult:
         """Create a RuleResult for this rule.
 

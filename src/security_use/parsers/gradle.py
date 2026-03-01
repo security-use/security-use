@@ -1,6 +1,7 @@
 """Parser for Gradle build files (build.gradle, build.gradle.kts)."""
 
 import re
+from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 
@@ -38,7 +39,7 @@ class GradleParser(DependencyParser):
 
         return dependencies
 
-    def _parse_line(self, line: str, line_number: int) -> Dependency | None:
+    def _parse_line(self, line: str, line_number: int) -> Optional[Dependency]:
         """Parse a single line from build.gradle."""
         line = line.strip()
 

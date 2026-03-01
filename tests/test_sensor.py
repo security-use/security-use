@@ -1,33 +1,34 @@
 """Tests for the security sensor module."""
 
-import os
-import tempfile
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+import tempfile
+import os
 
 from security_use.sensor import (
-    ActionTaken,
     AlertQueue,
-    AnalysisResult,
     AttackDetector,
     AttackType,
-    CircuitBreaker,
-    CircuitState,
-    DashboardAlerter,
-    EndpointInfo,
-    MatchedPattern,
-    RateLimiter,
     RequestData,
     SecurityEvent,
+    MatchedPattern,
     SensorConfig,
-    VulnerableEndpointDetector,
-    WebhookAlerter,
     create_config,
+    RateLimiter,
+    WebhookAlerter,
+    AlertResponse,
+    ActionTaken,
+    DashboardAlerter,
+    VulnerableEndpointDetector,
+    EndpointInfo,
+    AnalysisResult,
     detect_vulnerable_endpoints,
-    fire_and_forget,
     get_alert_queue,
+    CircuitBreaker,
+    CircuitState,
+    CircuitStats,
+    fire_and_forget,
     get_alert_stats,
     reset_alert_stats,
 )
@@ -291,7 +292,11 @@ class TestAttackDetector:
         events = detector.analyze_request(request)
 
         # May have rate limit events, but no attack events
-        attack_events = [e for e in events if e.event_type not in (AttackType.RATE_LIMIT_EXCEEDED,)]
+        attack_events = [
+            e
+            for e in events
+            if e.event_type not in (AttackType.RATE_LIMIT_EXCEEDED,)
+        ]
         assert len(attack_events) == 0
 
     # Selective Detection Tests
@@ -312,221 +317,6 @@ class TestAttackDetector:
 
         assert len(sqli_events) > 0
         assert len(xss_events) == 0
-
-    # SSRF (Server-Side Request Forgery) Tests
-    def test_detect_localhost_ssrf(self, detector):
-        """Test detection of localhost SSRF."""
-        request = RequestData(
-            method="POST",
-            path="/api/fetch",
-            body="url=http://localhost:8080/admin",
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
-        assert len(ssrf_events) > 0
-
-    def test_detect_aws_metadata_ssrf(self, detector):
-        """Test detection of AWS metadata endpoint SSRF."""
-        request = RequestData(
-            method="GET",
-            path="/api/proxy",
-            query_params={"url": "http://169.254.169.254/latest/meta-data/"},
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
-        assert len(ssrf_events) > 0
-
-    def test_detect_private_ip_ssrf(self, detector):
-        """Test detection of private IP SSRF."""
-        request = RequestData(
-            method="POST",
-            path="/api/webhook",
-            body="callback=http://192.168.1.100/internal",
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
-        assert len(ssrf_events) > 0
-
-    def test_detect_file_protocol_ssrf(self, detector):
-        """Test detection of file:// protocol SSRF."""
-        request = RequestData(
-            method="GET",
-            path="/api/load",
-            query_params={"resource": "file:///etc/passwd"},
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssrf_events = [e for e in events if e.event_type == AttackType.SSRF]
-        assert len(ssrf_events) > 0
-
-    # SSTI (Server-Side Template Injection) Tests
-    def test_detect_jinja2_ssti(self, detector):
-        """Test detection of Jinja2 template injection."""
-        request = RequestData(
-            method="POST",
-            path="/api/render",
-            body="template={{7*7}}",
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
-        assert len(ssti_events) > 0
-
-    def test_detect_jinja2_class_introspection(self, detector):
-        """Test detection of Python class introspection via SSTI."""
-        request = RequestData(
-            method="POST",
-            path="/api/template",
-            body='name={{"".__class__.__mro__[2].__subclasses__()}}',
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
-        assert len(ssti_events) > 0
-
-    def test_detect_expression_language_ssti(self, detector):
-        """Test detection of expression language injection."""
-        request = RequestData(
-            method="GET",
-            path="/api/eval",
-            query_params={"expr": "${7*7}"},
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
-        assert len(ssti_events) > 0
-
-    def test_detect_config_access_ssti(self, detector):
-        """Test detection of config access via SSTI."""
-        request = RequestData(
-            method="POST",
-            path="/api/format",
-            body="text={{config.SECRET_KEY}}",
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        ssti_events = [e for e in events if e.event_type == AttackType.SSTI]
-        assert len(ssti_events) > 0
-
-    # NoSQL Injection Tests
-    def test_detect_mongodb_where_injection(self, detector):
-        """Test detection of MongoDB $where injection."""
-        request = RequestData(
-            method="POST",
-            path="/api/users",
-            body='{"$where": "this.password == \'admin\'"}',
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        nosql_events = [e for e in events if e.event_type == AttackType.NOSQL_INJECTION]
-        assert len(nosql_events) > 0
-
-    def test_detect_mongodb_operator_injection(self, detector):
-        """Test detection of MongoDB operator injection."""
-        request = RequestData(
-            method="POST",
-            path="/api/login",
-            body='{"username": "admin", "password": {"$ne": ""}}',
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        nosql_events = [e for e in events if e.event_type == AttackType.NOSQL_INJECTION]
-        assert len(nosql_events) > 0
-
-    # XXE (XML External Entity) Tests
-    def test_detect_xxe_entity_declaration(self, detector):
-        """Test detection of XXE entity declaration."""
-        request = RequestData(
-            method="POST",
-            path="/api/xml",
-            body='<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>',
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        xxe_events = [e for e in events if e.event_type == AttackType.XXE]
-        assert len(xxe_events) > 0
-
-    def test_detect_xxe_file_access(self, detector):
-        """Test detection of XXE file protocol access."""
-        request = RequestData(
-            method="POST",
-            path="/api/import",
-            body='<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/shadow">]>',
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        xxe_events = [e for e in events if e.event_type == AttackType.XXE]
-        assert len(xxe_events) > 0
-
-    # Deserialization Attack Tests
-    def test_detect_java_serialized_object(self, detector):
-        """Test detection of Java serialized object."""
-        request = RequestData(
-            method="POST",
-            path="/api/deserialize",
-            body="data=rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcA...",
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        deser_events = [e for e in events if e.event_type == AttackType.DESERIALIZATION]
-        assert len(deser_events) > 0
-
-    def test_detect_php_serialized_object(self, detector):
-        """Test detection of PHP serialized object."""
-        request = RequestData(
-            method="POST",
-            path="/api/user",
-            body='O:4:"User":2:{s:4:"name";s:5:"admin";s:4:"role";s:5:"admin";}',
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        deser_events = [e for e in events if e.event_type == AttackType.DESERIALIZATION]
-        assert len(deser_events) > 0
-
-    def test_detect_python_pickle_attack(self, detector):
-        """Test detection of Python pickle attack patterns."""
-        request = RequestData(
-            method="POST",
-            path="/api/load",
-            body="pickle.loads(malicious_data)",
-            source_ip="10.0.0.1",
-        )
-
-        events = detector.analyze_request(request)
-
-        deser_events = [e for e in events if e.event_type == AttackType.DESERIALIZATION]
-        assert len(deser_events) > 0
 
 
 class TestRateLimiter:
@@ -759,7 +549,7 @@ class TestWebhookAlerter:
         return SecurityEvent(
             event_type=AttackType.SQL_INJECTION,
             severity="HIGH",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             source_ip="192.168.1.100",
             path="/api/users",
             method="POST",
@@ -953,7 +743,7 @@ class TestDashboardAlerter:
         return SecurityEvent(
             event_type=AttackType.SQL_INJECTION,
             severity="HIGH",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             source_ip="192.168.1.100",
             path="/api/users",
             method="POST",
@@ -1154,7 +944,7 @@ class TestDashboardAlerterCircuitBreaker:
         return SecurityEvent(
             event_type=AttackType.SQL_INJECTION,
             severity="HIGH",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             source_ip="192.168.1.100",
             path="/api/users",
             method="POST",
@@ -1267,7 +1057,7 @@ class TestDashboardAlerterDefaults:
         event = SecurityEvent(
             event_type=AttackType.SQL_INJECTION,
             severity="HIGH",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             source_ip="127.0.0.1",
             path="/test",
             method="GET",
@@ -1409,12 +1199,12 @@ class TestVulnerableEndpointDetector:
 
     def test_extract_imports(self, detector):
         """Test import extraction from Python code."""
-        code = """
+        code = '''
 import os
 from flask import Flask, request
 from sqlalchemy import create_engine
 import subprocess
-"""
+'''
         imports = detector._extract_imports(code)
 
         assert "os" in imports
@@ -1424,7 +1214,7 @@ import subprocess
 
     def test_find_fastapi_routes(self, detector):
         """Test finding FastAPI route decorators."""
-        code = """
+        code = '''
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -1436,7 +1226,7 @@ async def get_users():
 @app.post("/api/users")
 async def create_user(user: User):
     return user
-"""
+'''
         endpoints = detector._find_routes(code, "test.py", ["fastapi"])
 
         assert len(endpoints) == 2
@@ -1448,7 +1238,7 @@ async def create_user(user: User):
 
     def test_find_flask_routes(self, detector):
         """Test finding Flask route decorators."""
-        code = """
+        code = '''
 from flask import Flask
 
 app = Flask(__name__)
@@ -1460,7 +1250,7 @@ def search():
 @app.route("/api/login", methods=["POST"])
 def login():
     return {}
-"""
+'''
         endpoints = detector._find_routes(code, "test.py", ["flask"])
 
         assert len(endpoints) == 2
@@ -1505,7 +1295,7 @@ def login():
         """Test analyzing a temporary project directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a simple FastAPI app
-            app_code = """
+            app_code = '''
 from fastapi import FastAPI
 import subprocess
 
@@ -1519,7 +1309,7 @@ async def execute_command(cmd: str):
 @app.get("/api/users")
 async def get_users():
     return []
-"""
+'''
             app_path = os.path.join(tmpdir, "main.py")
             with open(app_path, "w") as f:
                 f.write(app_code)
@@ -1531,7 +1321,8 @@ async def get_users():
             # The /api/execute endpoint should be flagged as vulnerable
             # due to subprocess import and "exec" in path
             exec_endpoint = next(
-                (e for e in result.all_endpoints if e.path == "/api/execute"), None
+                (e for e in result.all_endpoints if e.path == "/api/execute"),
+                None
             )
             assert exec_endpoint is not None
             assert exec_endpoint.risk_score > 0.3
@@ -1539,7 +1330,7 @@ async def get_users():
     def test_get_watch_paths(self, detector):
         """Test getting watch paths for a project."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_code = """
+            app_code = '''
 from fastapi import FastAPI
 import pickle
 
@@ -1548,7 +1339,7 @@ app = FastAPI()
 @app.post("/api/deserialize")
 async def deserialize(data: bytes):
     return pickle.loads(data)
-"""
+'''
             app_path = os.path.join(tmpdir, "app.py")
             with open(app_path, "w") as f:
                 f.write(app_code)
@@ -1560,7 +1351,7 @@ async def deserialize(data: bytes):
     def test_detect_vulnerable_endpoints_convenience_function(self):
         """Test the convenience function."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_code = """
+            app_code = '''
 from flask import Flask, request
 import os
 
@@ -1569,7 +1360,7 @@ app = Flask(__name__)
 @app.route("/shell")
 def run_shell():
     os.system(request.args.get("cmd"))
-"""
+'''
             app_path = os.path.join(tmpdir, "app.py")
             with open(app_path, "w") as f:
                 f.write(app_code)
@@ -1648,7 +1439,7 @@ class TestAlertQueue:
         return SecurityEvent(
             event_type=AttackType.SQL_INJECTION,
             severity="HIGH",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             source_ip="192.168.1.100",
             path="/api/users",
             method="POST",
@@ -1740,7 +1531,6 @@ class TestAlertQueue:
 
     def test_queue_pending_count(self, sample_event):
         """Test pending_count property."""
-
         class NeverCalledAlerter:
             def send_alert_sync(self, event, action):
                 return True
@@ -1977,167 +1767,3 @@ class TestASGIBodyHandling:
 
         # Body should still be available to application
         assert received_body == body
-
-
-class TestDjangoSecurityMiddleware:
-    """Tests for Django middleware."""
-
-    @pytest.fixture
-    def mock_django_settings(self):
-        """Create mock Django settings module."""
-
-        # SimpleNamespace with getattr support for defaults
-        class MockSettings:
-            SECURITY_USE_ENABLED = True
-            SECURITY_USE_API_KEY = None
-            SECURITY_USE_WEBHOOK_URL = None
-            SECURITY_USE_BLOCK_ON_DETECTION = True
-            SECURITY_USE_EXCLUDED_PATHS = ["/health/", "/metrics/"]
-            SECURITY_USE_WATCH_PATHS = None
-
-        return MockSettings()
-
-    @pytest.fixture
-    def mock_django_request(self):
-        """Create a mock Django request object."""
-
-        class MockRequest:
-            def __init__(
-                self,
-                method="GET",
-                path="/",
-                body=b"",
-                GET=None,
-                META=None,
-            ):
-                self.method = method
-                self.path = path
-                self.body = body
-                self.GET = GET or {}
-                self.META = META or {
-                    "REMOTE_ADDR": "127.0.0.1",
-                    "REQUEST_METHOD": method,
-                }
-
-        return MockRequest
-
-    def test_django_middleware_import(self):
-        """Test that Django middleware can be imported."""
-        from security_use.sensor import DjangoSecurityMiddleware
-
-        assert DjangoSecurityMiddleware is not None
-
-    def test_django_middleware_init(self, mock_django_settings):
-        """Test Django middleware initialization."""
-        # Mock Django settings
-        import sys
-
-        from security_use.sensor.middleware import DjangoSecurityMiddleware
-
-        mock_module = type(sys)("django.conf")
-        mock_module.settings = mock_django_settings
-        sys.modules["django"] = type(sys)("django")
-        sys.modules["django.conf"] = mock_module
-        sys.modules["django.http"] = type(sys)("django.http")
-
-        def get_response(request):
-            return {"status": 200}
-
-        try:
-            middleware = DjangoSecurityMiddleware(get_response)
-            assert middleware._enabled is True
-            assert middleware.config.block_on_detection is True
-        finally:
-            # Cleanup
-            del sys.modules["django"]
-            del sys.modules["django.conf"]
-            del sys.modules["django.http"]
-
-    def test_django_middleware_excluded_path(self, mock_django_settings, mock_django_request):
-        """Test that excluded paths are skipped."""
-        import sys
-
-        from security_use.sensor.middleware import DjangoSecurityMiddleware
-
-        mock_module = type(sys)("django.conf")
-        mock_module.settings = mock_django_settings
-        sys.modules["django"] = type(sys)("django")
-        sys.modules["django.conf"] = mock_module
-
-        # Mock JsonResponse
-        mock_http = type(sys)("django.http")
-
-        class MockJsonResponse:
-            def __init__(self, data, status=200):
-                self.data = data
-                self.status_code = status
-
-        mock_http.JsonResponse = MockJsonResponse
-        sys.modules["django.http"] = mock_http
-
-        response_called = False
-
-        def get_response(request):
-            nonlocal response_called
-            response_called = True
-            return {"status": 200}
-
-        try:
-            middleware = DjangoSecurityMiddleware(get_response)
-            request = mock_django_request(path="/health/")
-
-            middleware(request)
-            assert response_called is True
-        finally:
-            del sys.modules["django"]
-            del sys.modules["django.conf"]
-            del sys.modules["django.http"]
-
-    def test_django_middleware_detects_attack(self, mock_django_settings, mock_django_request):
-        """Test that Django middleware detects SQL injection."""
-        import sys
-
-        from security_use.sensor.middleware import DjangoSecurityMiddleware
-
-        mock_module = type(sys)("django.conf")
-        mock_django_settings.SECURITY_USE_BLOCK_ON_DETECTION = True
-        mock_module.settings = mock_django_settings
-        sys.modules["django"] = type(sys)("django")
-        sys.modules["django.conf"] = mock_module
-
-        # Mock JsonResponse
-        mock_http = type(sys)("django.http")
-
-        class MockJsonResponse:
-            def __init__(self, data, status=200):
-                self.data = data
-                self.status_code = status
-
-        mock_http.JsonResponse = MockJsonResponse
-        sys.modules["django.http"] = mock_http
-
-        def get_response(request):
-            return {"status": 200}
-
-        try:
-            middleware = DjangoSecurityMiddleware(get_response)
-
-            # Create request with SQL injection in body
-            request = mock_django_request(
-                method="POST",
-                path="/api/login",
-                body=b"username=admin' OR 1=1--",
-                META={
-                    "REMOTE_ADDR": "192.168.1.100",
-                    "REQUEST_METHOD": "POST",
-                },
-            )
-
-            response = middleware(request)
-
-            # Should return 403 Forbidden
-            assert response.status_code == 403
-        finally:
-            del sys.modules["django"]
-            del sys.modules["django.conf"]
-            del sys.modules["django.http"]

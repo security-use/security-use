@@ -13,14 +13,12 @@
   <a href="https://pypi.org/project/security-use/"><img src="https://img.shields.io/pypi/pyversions/security-use?color=5EEAD4&style=flat-square" alt="Python Versions"></a>
   <a href="https://github.com/security-use/security-use/blob/main/LICENSE"><img src="https://img.shields.io/github/license/security-use/security-use?color=5EEAD4&style=flat-square" alt="License"></a>
   <a href="https://github.com/security-use/security-use/actions"><img src="https://img.shields.io/github/actions/workflow/status/security-use/security-use/ci.yml?style=flat-square" alt="CI"></a>
-  <a href="https://codecov.io/gh/security-use/security-use"><img src="https://img.shields.io/codecov/c/github/security-use/security-use?color=5EEAD4&style=flat-square" alt="Coverage"></a>
 </p>
 
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
-  <a href="docs/">Documentation</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -65,11 +63,9 @@ Find security misconfigurations before they reach production.
 
 | Platform | Formats | Rules |
 |----------|---------|-------|
-| **Terraform** | `.tf`, `.tf.json` | 38+ |
-| **CloudFormation** | `.yaml`, `.yml`, `.json` | 30+ |
-| **AWS** | S3, EC2, IAM, RDS, Lambda, SNS, SQS, ALB | Full coverage |
-| **Azure** | Storage, App Service, SQL, Key Vault, NSG | Full coverage |
-| **GCP** | GCS, Cloud SQL, GKE, Compute, Firewall | Full coverage |
+| **Terraform** | `.tf`, `.tf.json` | 25+ |
+| **CloudFormation** | `.yaml`, `.yml`, `.json` | 20+ |
+| **AWS** | S3, EC2, IAM, RDS, Lambda | Full coverage |
 
 **Detects:**
 - Unencrypted storage and databases
@@ -80,7 +76,7 @@ Find security misconfigurations before they reach production.
 
 ### Runtime Security Sensor
 
-Real-time attack detection middleware for FastAPI, Flask, and Django applications with dashboard integration.
+Real-time attack detection middleware for FastAPI and Flask applications with dashboard integration.
 
 ```python
 from fastapi import FastAPI
@@ -112,14 +108,9 @@ app.add_middleware(
 
 **Detects:**
 - SQL Injection (`' OR 1=1--`, `UNION SELECT`, etc.)
-- NoSQL Injection (MongoDB `$where`, `$ne`, `$gt`, operators)
 - Cross-Site Scripting (`<script>`, `javascript:`, event handlers)
 - Path Traversal (`../`, `%2e%2e%2f`, etc.)
 - Command Injection (`;cat /etc/passwd`, backticks, `$()`)
-- SSRF (Server-Side Request Forgery) - localhost, cloud metadata endpoints, private IPs
-- SSTI (Server-Side Template Injection) - Jinja2, expression languages, Python introspection
-- XXE (XML External Entity) - `<!ENTITY>`, SYSTEM/PUBLIC declarations
-- Deserialization attacks - Java, PHP, Python pickle/YAML
 - Rate limit violations
 - Suspicious user agents (sqlmap, nikto, etc.)
 
@@ -199,32 +190,9 @@ pip install security-use[dev]
 
 ## Quick Start
 
-### Zero-Config Setup (Recommended)
-
-The fastest way to secure your project:
-
-```bash
-# Install
-pip install security-use
-
-# Initialize - auto-detects framework, injects middleware, sets up pre-commit hooks
-cd your-project
-security-use init
-
-# That's it! Your app now has:
-# ✓ Runtime attack protection (FastAPI/Flask/Django)
-# ✓ Pre-commit security scanning
-# ✓ Configuration file for customization
-```
-
 ### Command Line Interface
 
 ```bash
-# Initialize a project (auto-detects FastAPI/Flask/Django)
-security-use init ./my-project
-security-use init --dry-run          # Preview changes without modifying files
-security-use init --no-middleware    # Skip middleware injection
-
 # Scan dependencies for vulnerabilities
 security-use scan deps ./my-project
 
@@ -331,23 +299,6 @@ app.wsgi_app = FlaskSecurityMiddleware(
 @app.route("/api/users")
 def get_users():
     return {"users": []}
-```
-
-**Django:**
-
-```python
-# settings.py
-MIDDLEWARE = [
-    'security_use.sensor.DjangoSecurityMiddleware',  # Add at top
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    # ... other middleware
-]
-
-# Optional configuration
-SECURITY_USE_API_KEY = "su_..."  # Dashboard integration
-SECURITY_USE_BLOCK_ON_DETECTION = True
-SECURITY_USE_EXCLUDED_PATHS = ['/health/', '/metrics/', '/admin/']
 ```
 
 **Programmatic Endpoint Analysis:**
@@ -462,27 +413,6 @@ security-scan:
       security: security-report.json
 ```
 
-### Jenkins Pipeline
-
-```groovy
-pipeline {
-    agent any
-    stages {
-        stage('Security Scan') {
-            steps {
-                sh 'pip install security-use'
-                sh 'security-use scan all . --format json > security-report.json'
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'security-report.json'
-                }
-            }
-        }
-    }
-}
-```
-
 ### Pre-commit Hook
 
 ```yaml
@@ -522,31 +452,6 @@ iac:
 output:
   format: table  # table, json, sarif
   verbose: false
-```
-
-## Ecosystem
-
-SecurityUse is part of a larger ecosystem of security tools:
-
-### 🤖 MCP Server (for AI Assistants)
-
-The [security-use MCP server](https://github.com/security-use/mcp) gives AI assistants (Cursor, Claude, etc.) the ability to scan and fix vulnerabilities directly.
-
-```bash
-pip install security-use-mcp
-```
-
-### 📝 LSP Server (for Editors)
-
-The [security-use LSP server](https://github.com/security-use/lsp-server) provides real-time security feedback in VS Code and other editors:
-
-- Squiggly underlines on vulnerable dependencies
-- Hover information with CVE details
-- Quick-fix code actions
-- Compliance framework mapping
-
-```bash
-pip install security-lsp
 ```
 
 ## Contributing

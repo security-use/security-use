@@ -1,5 +1,7 @@
 """Compliance framework mapper for security rules."""
 
+from typing import Optional
+
 from security_use.compliance.models import (
     ComplianceControl,
     ComplianceFinding,
@@ -16,492 +18,152 @@ class ComplianceMapper:
     MAPPINGS: dict[str, list[tuple[ComplianceFramework, str, str, str]]] = {
         # AWS S3 Encryption
         "CKV_AWS_19": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.1",
-                "Encryption of Data at Rest",
-                "Logical and physical access controls",
-            ),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(a)(2)(iv)",
-                "Encryption",
-                "Technical safeguards for data encryption",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "3.4",
-                "Render PAN unreadable",
-                "Protect stored cardholder data",
-            ),
-            (
-                ComplianceFramework.NIST_800_53,
-                "SC-28",
-                "Protection of Information at Rest",
-                "Protect data at rest with encryption",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "2.1.1",
-                "Ensure S3 Bucket Encryption",
-                "S3 buckets should have encryption enabled",
-            ),
-            (
-                ComplianceFramework.ISO_27001,
-                "A.10.1.1",
-                "Cryptographic Controls",
-                "Policy on use of cryptographic controls",
-            ),
+            (ComplianceFramework.SOC2, "CC6.1", "Encryption of Data at Rest",
+             "Logical and physical access controls"),
+            (ComplianceFramework.HIPAA, "164.312(a)(2)(iv)", "Encryption",
+             "Technical safeguards for data encryption"),
+            (ComplianceFramework.PCI_DSS, "3.4", "Render PAN unreadable",
+             "Protect stored cardholder data"),
+            (ComplianceFramework.NIST_800_53, "SC-28", "Protection of Information at Rest",
+             "Protect data at rest with encryption"),
+            (ComplianceFramework.CIS_AWS, "2.1.1", "Ensure S3 Bucket Encryption",
+             "S3 buckets should have encryption enabled"),
+            (ComplianceFramework.ISO_27001, "A.10.1.1", "Cryptographic Controls",
+             "Policy on use of cryptographic controls"),
         ],
         # AWS S3 Public Access
         "CKV_AWS_20": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.6",
-                "Logical Access Controls",
-                "Restrict access to authorized users",
-            ),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(e)(1)",
-                "Transmission Security",
-                "Technical safeguards for access control",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "7.1",
-                "Limit access to system components",
-                "Restrict access to need-to-know basis",
-            ),
-            (
-                ComplianceFramework.NIST_800_53,
-                "AC-3",
-                "Access Enforcement",
-                "Enforce approved authorizations",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "2.1.5",
-                "Ensure S3 Block Public Access",
-                "Block public access to S3 buckets",
-            ),
+            (ComplianceFramework.SOC2, "CC6.6", "Logical Access Controls",
+             "Restrict access to authorized users"),
+            (ComplianceFramework.HIPAA, "164.312(e)(1)", "Transmission Security",
+             "Technical safeguards for access control"),
+            (ComplianceFramework.PCI_DSS, "7.1", "Limit access to system components",
+             "Restrict access to need-to-know basis"),
+            (ComplianceFramework.NIST_800_53, "AC-3", "Access Enforcement",
+             "Enforce approved authorizations"),
+            (ComplianceFramework.CIS_AWS, "2.1.5", "Ensure S3 Block Public Access",
+             "Block public access to S3 buckets"),
         ],
         # AWS Security Group
         "CKV_AWS_23": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.6",
-                "Logical Access Controls",
-                "Network access restrictions",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "1.3",
-                "Prohibit direct public access",
-                "Restrict inbound and outbound traffic",
-            ),
-            (
-                ComplianceFramework.NIST_800_53,
-                "SC-7",
-                "Boundary Protection",
-                "Monitor and control communications at boundaries",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "5.2",
-                "Ensure VPC Security Groups",
-                "Restrict unrestricted ingress",
-            ),
+            (ComplianceFramework.SOC2, "CC6.6", "Logical Access Controls",
+             "Network access restrictions"),
+            (ComplianceFramework.PCI_DSS, "1.3", "Prohibit direct public access",
+             "Restrict inbound and outbound traffic"),
+            (ComplianceFramework.NIST_800_53, "SC-7", "Boundary Protection",
+             "Monitor and control communications at boundaries"),
+            (ComplianceFramework.CIS_AWS, "5.2", "Ensure VPC Security Groups",
+             "Restrict unrestricted ingress"),
         ],
         # AWS RDS Encryption
         "CKV_AWS_16": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.1",
-                "Encryption of Data at Rest",
-                "Database encryption",
-            ),
-            (ComplianceFramework.HIPAA, "164.312(a)(2)(iv)", "Encryption", "Encrypt PHI at rest"),
-            (
-                ComplianceFramework.PCI_DSS,
-                "3.4",
-                "Render PAN unreadable",
-                "Encrypt stored cardholder data",
-            ),
-            (
-                ComplianceFramework.NIST_800_53,
-                "SC-28",
-                "Protection of Information at Rest",
-                "Database encryption at rest",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "2.3.1",
-                "Ensure RDS Encryption",
-                "RDS instances should be encrypted",
-            ),
+            (ComplianceFramework.SOC2, "CC6.1", "Encryption of Data at Rest",
+             "Database encryption"),
+            (ComplianceFramework.HIPAA, "164.312(a)(2)(iv)", "Encryption",
+             "Encrypt PHI at rest"),
+            (ComplianceFramework.PCI_DSS, "3.4", "Render PAN unreadable",
+             "Encrypt stored cardholder data"),
+            (ComplianceFramework.NIST_800_53, "SC-28", "Protection of Information at Rest",
+             "Database encryption at rest"),
+            (ComplianceFramework.CIS_AWS, "2.3.1", "Ensure RDS Encryption",
+             "RDS instances should be encrypted"),
         ],
         # AWS EBS Encryption
         "CKV_AWS_3": [
-            (ComplianceFramework.SOC2, "CC6.1", "Encryption of Data at Rest", "Volume encryption"),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(a)(2)(iv)",
-                "Encryption",
-                "Encrypt PHI on storage volumes",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "3.4",
-                "Render PAN unreadable",
-                "Encrypt stored data on volumes",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "2.2.1",
-                "Ensure EBS Encryption",
-                "EBS volumes should be encrypted",
-            ),
+            (ComplianceFramework.SOC2, "CC6.1", "Encryption of Data at Rest",
+             "Volume encryption"),
+            (ComplianceFramework.HIPAA, "164.312(a)(2)(iv)", "Encryption",
+             "Encrypt PHI on storage volumes"),
+            (ComplianceFramework.PCI_DSS, "3.4", "Render PAN unreadable",
+             "Encrypt stored data on volumes"),
+            (ComplianceFramework.CIS_AWS, "2.2.1", "Ensure EBS Encryption",
+             "EBS volumes should be encrypted"),
         ],
         # AWS IAM MFA
         "CKV_AWS_14": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.1",
-                "Authentication Controls",
-                "Multi-factor authentication",
-            ),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(d)",
-                "Person or Entity Authentication",
-                "Verify user identity",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "8.3",
-                "Secure all administrative access",
-                "Use MFA for all access",
-            ),
-            (
-                ComplianceFramework.NIST_800_53,
-                "IA-2",
-                "Identification and Authentication",
-                "Multi-factor authentication",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "1.10",
-                "Ensure MFA is enabled",
-                "Enable MFA for IAM users",
-            ),
+            (ComplianceFramework.SOC2, "CC6.1", "Authentication Controls",
+             "Multi-factor authentication"),
+            (ComplianceFramework.HIPAA, "164.312(d)", "Person or Entity Authentication",
+             "Verify user identity"),
+            (ComplianceFramework.PCI_DSS, "8.3", "Secure all administrative access",
+             "Use MFA for all access"),
+            (ComplianceFramework.NIST_800_53, "IA-2", "Identification and Authentication",
+             "Multi-factor authentication"),
+            (ComplianceFramework.CIS_AWS, "1.10", "Ensure MFA is enabled",
+             "Enable MFA for IAM users"),
         ],
         # AWS CloudTrail
         "CKV_AWS_35": [
-            (
-                ComplianceFramework.SOC2,
-                "CC7.2",
-                "System Monitoring",
-                "Audit logging and monitoring",
-            ),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(b)",
-                "Audit Controls",
-                "Record and examine activity",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "10.1",
-                "Implement audit trails",
-                "Link all access to individual users",
-            ),
-            (ComplianceFramework.NIST_800_53, "AU-2", "Audit Events", "Generate audit records"),
-            (
-                ComplianceFramework.CIS_AWS,
-                "3.1",
-                "Ensure CloudTrail is enabled",
-                "Enable CloudTrail in all regions",
-            ),
+            (ComplianceFramework.SOC2, "CC7.2", "System Monitoring",
+             "Audit logging and monitoring"),
+            (ComplianceFramework.HIPAA, "164.312(b)", "Audit Controls",
+             "Record and examine activity"),
+            (ComplianceFramework.PCI_DSS, "10.1", "Implement audit trails",
+             "Link all access to individual users"),
+            (ComplianceFramework.NIST_800_53, "AU-2", "Audit Events",
+             "Generate audit records"),
+            (ComplianceFramework.CIS_AWS, "3.1", "Ensure CloudTrail is enabled",
+             "Enable CloudTrail in all regions"),
         ],
         # AWS VPC Flow Logs
         "CKV_AWS_12": [
-            (ComplianceFramework.SOC2, "CC7.2", "System Monitoring", "Network traffic monitoring"),
-            (ComplianceFramework.PCI_DSS, "10.6", "Review logs", "Monitor network traffic"),
-            (
-                ComplianceFramework.NIST_800_53,
-                "AU-12",
-                "Audit Generation",
-                "Generate audit records for network traffic",
-            ),
-            (ComplianceFramework.CIS_AWS, "3.9", "Ensure VPC Flow Logs", "Enable VPC Flow Logs"),
-        ],
-        # AWS ALB Access Logs
-        "CKV_AWS_91": [
-            (ComplianceFramework.SOC2, "CC7.2", "System Monitoring", "Access log monitoring"),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(b)",
-                "Audit Controls",
-                "Record and examine system activity",
-            ),
-            (ComplianceFramework.PCI_DSS, "10.1", "Audit Trails", "Implement access logging"),
-            (
-                ComplianceFramework.NIST_800_53,
-                "AU-2",
-                "Audit Events",
-                "Generate audit records for access events",
-            ),
-            (
-                ComplianceFramework.CIS_AWS,
-                "2.6",
-                "Ensure ELB Access Logging",
-                "Enable access logging on load balancers",
-            ),
-        ],
-        # AWS SNS Encryption
-        "CKV_AWS_26": [
-            (ComplianceFramework.SOC2, "CC6.1", "Encryption", "Encrypt data at rest"),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(a)(2)(iv)",
-                "Encryption",
-                "Encrypt electronic PHI",
-            ),
-            (ComplianceFramework.PCI_DSS, "3.4", "Protect Stored Data", "Render data unreadable"),
-            (
-                ComplianceFramework.NIST_800_53,
-                "SC-28",
-                "Protection at Rest",
-                "Protect confidentiality of data at rest",
-            ),
-        ],
-        # AWS SQS Encryption
-        "CKV_AWS_27": [
-            (ComplianceFramework.SOC2, "CC6.1", "Encryption", "Encrypt data at rest"),
-            (
-                ComplianceFramework.HIPAA,
-                "164.312(a)(2)(iv)",
-                "Encryption",
-                "Encrypt electronic PHI",
-            ),
-            (ComplianceFramework.PCI_DSS, "3.4", "Protect Stored Data", "Render data unreadable"),
-            (
-                ComplianceFramework.NIST_800_53,
-                "SC-28",
-                "Protection at Rest",
-                "Protect confidentiality of data at rest",
-            ),
-        ],
-        # AWS Lambda VPC
-        "CKV_AWS_117": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.6",
-                "Network Segmentation",
-                "Restrict network access to private resources",
-            ),
-            (ComplianceFramework.PCI_DSS, "1.3", "Network Segmentation", "Restrict connections"),
-            (
-                ComplianceFramework.NIST_800_53,
-                "SC-7",
-                "Boundary Protection",
-                "Monitor and control communications at boundary",
-            ),
+            (ComplianceFramework.SOC2, "CC7.2", "System Monitoring",
+             "Network traffic monitoring"),
+            (ComplianceFramework.PCI_DSS, "10.6", "Review logs",
+             "Monitor network traffic"),
+            (ComplianceFramework.NIST_800_53, "AU-12", "Audit Generation",
+             "Generate audit records for network traffic"),
+            (ComplianceFramework.CIS_AWS, "3.9", "Ensure VPC Flow Logs",
+             "Enable VPC Flow Logs"),
         ],
         # Azure Storage Public Access
         "CKV_AZURE_19": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.6",
-                "Logical Access Controls",
-                "Storage access controls",
-            ),
-            (
-                ComplianceFramework.CIS_AZURE,
-                "3.7",
-                "Ensure Storage Account Access",
-                "Disable public blob access",
-            ),
+            (ComplianceFramework.SOC2, "CC6.6", "Logical Access Controls",
+             "Storage access controls"),
+            (ComplianceFramework.CIS_AZURE, "3.7", "Ensure Storage Account Access",
+             "Disable public blob access"),
         ],
         # Azure NSG
         "CKV_AZURE_9": [
-            (ComplianceFramework.SOC2, "CC6.6", "Network Access Controls", "NSG configuration"),
-            (
-                ComplianceFramework.CIS_AZURE,
-                "6.1",
-                "Ensure NSG Rules",
-                "Restrict unrestricted access",
-            ),
+            (ComplianceFramework.SOC2, "CC6.6", "Network Access Controls",
+             "NSG configuration"),
+            (ComplianceFramework.CIS_AZURE, "6.1", "Ensure NSG Rules",
+             "Restrict unrestricted access"),
         ],
         # GCP Storage Public Access
         "CKV_GCP_5": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.6",
-                "Logical Access Controls",
-                "Cloud Storage access controls",
-            ),
-            (
-                ComplianceFramework.CIS_GCP,
-                "5.1",
-                "Ensure Cloud Storage Bucket Access",
-                "Remove public access",
-            ),
+            (ComplianceFramework.SOC2, "CC6.6", "Logical Access Controls",
+             "Cloud Storage access controls"),
+            (ComplianceFramework.CIS_GCP, "5.1", "Ensure Cloud Storage Bucket Access",
+             "Remove public access"),
         ],
         # GCP Firewall
         "CKV_GCP_2": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.6",
-                "Network Access Controls",
-                "Firewall configuration",
-            ),
-            (
-                ComplianceFramework.CIS_GCP,
-                "3.6",
-                "Ensure Firewall Rules",
-                "Restrict unrestricted access",
-            ),
+            (ComplianceFramework.SOC2, "CC6.6", "Network Access Controls",
+             "Firewall configuration"),
+            (ComplianceFramework.CIS_GCP, "3.6", "Ensure Firewall Rules",
+             "Restrict unrestricted access"),
         ],
         # Kubernetes Privileged Container
         "CKV_K8S_1": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.1",
-                "Access Controls",
-                "Container privilege restrictions",
-            ),
-            (
-                ComplianceFramework.CIS_K8S,
-                "5.2.1",
-                "Minimize privileged containers",
-                "Do not run privileged containers",
-            ),
+            (ComplianceFramework.SOC2, "CC6.1", "Access Controls",
+             "Container privilege restrictions"),
+            (ComplianceFramework.CIS_K8S, "5.2.1", "Minimize privileged containers",
+             "Do not run privileged containers"),
         ],
         # Kubernetes Run as Root
         "CKV_K8S_6": [
-            (ComplianceFramework.SOC2, "CC6.1", "Access Controls", "Container user restrictions"),
-            (
-                ComplianceFramework.CIS_K8S,
-                "5.2.6",
-                "Minimize root containers",
-                "Do not run containers as root",
-            ),
+            (ComplianceFramework.SOC2, "CC6.1", "Access Controls",
+             "Container user restrictions"),
+            (ComplianceFramework.CIS_K8S, "5.2.6", "Minimize root containers",
+             "Do not run containers as root"),
         ],
         # Kubernetes Resource Limits
         "CKV_K8S_11": [
-            (ComplianceFramework.SOC2, "CC6.8", "System Operations", "Resource management"),
-            (
-                ComplianceFramework.CIS_K8S,
-                "5.4.1",
-                "Ensure resource limits",
-                "Set CPU and memory limits",
-            ),
-        ],
-        # Azure App Service HTTPS
-        "CKV_AZURE_14": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.7",
-                "Data Transmission Protection",
-                "Encrypt data in transit",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "4.1",
-                "Strong Cryptography",
-                "Use strong cryptography for transmission",
-            ),
-            (
-                ComplianceFramework.CIS_AZURE,
-                "9.2",
-                "Ensure HTTPS Only",
-                "Require HTTPS for App Service",
-            ),
-        ],
-        # Azure Storage HTTPS
-        "CKV_AZURE_3": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.7",
-                "Data Transmission Protection",
-                "Encrypt data in transit",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "4.1",
-                "Strong Cryptography",
-                "Use strong cryptography for transmission",
-            ),
-            (
-                ComplianceFramework.CIS_AZURE,
-                "3.1",
-                "Ensure HTTPS for Storage",
-                "Require HTTPS transfer",
-            ),
-        ],
-        # Azure Function App HTTPS
-        "CKV_AZURE_70": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.7",
-                "Data Transmission Protection",
-                "Encrypt data in transit",
-            ),
-            (
-                ComplianceFramework.PCI_DSS,
-                "4.1",
-                "Strong Cryptography",
-                "Use strong cryptography for transmission",
-            ),
-            (ComplianceFramework.CIS_AZURE, "9.10", "Ensure HTTPS for Functions", "Require HTTPS"),
-        ],
-        # GKE Private Cluster
-        "CKV_GCP_18": [
-            (ComplianceFramework.SOC2, "CC6.6", "Network Segmentation", "Isolate cluster nodes"),
-            (ComplianceFramework.CIS_GCP, "7.1", "Private Cluster", "Enable private nodes"),
-        ],
-        # GCP Cloud SQL SSL
-        "CKV_GCP_6": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.7",
-                "Data Transmission Protection",
-                "Encrypt database connections",
-            ),
-            (ComplianceFramework.PCI_DSS, "4.1", "Strong Cryptography", "Encrypt transmissions"),
-            (ComplianceFramework.CIS_GCP, "6.1", "Cloud SQL SSL", "Require SSL connections"),
-        ],
-        # GCP Compute SSH Keys
-        "CKV_GCP_32": [
-            (ComplianceFramework.SOC2, "CC6.1", "Access Controls", "SSH key management"),
-            (
-                ComplianceFramework.CIS_GCP,
-                "4.4",
-                "Block Project-Wide SSH Keys",
-                "Instance-specific keys",
-            ),
-        ],
-        # Kubernetes Allow Privilege Escalation
-        "CKV_K8S_20": [
-            (ComplianceFramework.SOC2, "CC6.1", "Access Controls", "Prevent privilege escalation"),
-            (
-                ComplianceFramework.CIS_K8S,
-                "5.2.5",
-                "Minimize allowPrivilegeEscalation",
-                "Disable privilege escalation",
-            ),
-        ],
-        # Kubernetes HostPath Volume
-        "CKV_K8S_26": [
-            (
-                ComplianceFramework.SOC2,
-                "CC6.1",
-                "Access Controls",
-                "Restrict host filesystem access",
-            ),
-            (ComplianceFramework.CIS_K8S, "5.7.1", "Avoid hostPath", "Do not use hostPath volumes"),
+            (ComplianceFramework.SOC2, "CC6.8", "System Operations",
+             "Resource management"),
+            (ComplianceFramework.CIS_K8S, "5.4.1", "Ensure resource limits",
+             "Set CPU and memory limits"),
         ],
     }
 
@@ -567,7 +229,10 @@ class ComplianceMapper:
         for finding in findings:
             enriched = self.enrich_finding(finding)
             # Filter controls to only the requested framework
-            framework_controls = [c for c in enriched.controls if c.framework == framework]
+            framework_controls = [
+                c for c in enriched.controls
+                if c.framework == framework
+            ]
 
             if framework_controls:
                 enriched.controls = framework_controls

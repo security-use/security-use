@@ -1,6 +1,8 @@
 """Parser for .NET project files (*.csproj, packages.config)."""
 
+import re
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 from security_use.parsers.base import Dependency, DependencyParser
 

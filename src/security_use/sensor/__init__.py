@@ -84,7 +84,6 @@ from .endpoint_analyzer import (
     detect_vulnerable_endpoints,
 )
 from .middleware import (
-    DjangoSecurityMiddleware,
     FlaskSecurityMiddleware,
     SecurityMiddleware,
     fire_and_forget,
@@ -106,7 +105,6 @@ __all__ = [
     # Middleware
     "SecurityMiddleware",
     "FlaskSecurityMiddleware",
-    "DjangoSecurityMiddleware",
     # Detection
     "AttackDetector",
     "RateLimiter",

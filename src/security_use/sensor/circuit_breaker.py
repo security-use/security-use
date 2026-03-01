@@ -5,6 +5,7 @@ import threading
 from dataclasses import dataclass
 from enum import Enum
 from time import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,8 @@ class CircuitStats:
     state: CircuitState
     failure_count: int
     success_count: int
-    last_failure_time: float | None
-    last_success_time: float | None
+    last_failure_time: Optional[float]
+    last_success_time: Optional[float]
     times_opened: int
     times_closed: int
 
@@ -72,8 +73,8 @@ class CircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: float | None = None
-        self._last_success_time: float | None = None
+        self._last_failure_time: Optional[float] = None
+        self._last_success_time: Optional[float] = None
         self._half_open_calls = 0
         self._times_opened = 0
         self._times_closed = 0
@@ -136,7 +137,9 @@ class CircuitBreaker:
                 self._state = CircuitState.CLOSED
                 self._failure_count = 0
                 self._times_closed += 1
-                logger.info(f"Circuit breaker '{self.name}' CLOSED after successful test")
+                logger.info(
+                    f"Circuit breaker '{self.name}' CLOSED after successful test"
+                )
             elif self._state == CircuitState.CLOSED:
                 # Reset failure count on success
                 self._failure_count = 0
@@ -151,7 +154,9 @@ class CircuitBreaker:
                 # Failure in half-open means service still down
                 self._state = CircuitState.OPEN
                 self._times_opened += 1
-                logger.warning(f"Circuit breaker '{self.name}' OPEN after half-open failure")
+                logger.warning(
+                    f"Circuit breaker '{self.name}' OPEN after half-open failure"
+                )
             elif self._state == CircuitState.CLOSED:
                 if self._failure_count >= self.failure_threshold:
                     self._state = CircuitState.OPEN

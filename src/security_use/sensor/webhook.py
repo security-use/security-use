@@ -2,7 +2,8 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 
 import httpx
 
@@ -20,7 +21,7 @@ class WebhookAlerter:
         retry_count: int = 3,
         retry_delay: float = 1.0,
         timeout: float = 10.0,
-        headers: dict[str, str] | None = None,
+        headers: Optional[dict[str, str]] = None,
     ):
         """Initialize the webhook alerter.
 
@@ -52,13 +53,13 @@ class WebhookAlerter:
             AlertResponse with success status and details.
         """
         payload = AlertPayload(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             alert=event,
             action_taken=action_taken,
         )
 
         attempt = 0
-        last_error: str | None = None
+        last_error: Optional[str] = None
         last_status = 0
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -147,13 +148,13 @@ class WebhookAlerter:
             AlertResponse with success status and details.
         """
         payload = AlertPayload(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             alert=event,
             action_taken=action_taken,
         )
 
         attempt = 0
-        last_error: str | None = None
+        last_error: Optional[str] = None
         last_status = 0
 
         with httpx.Client(timeout=self.timeout) as client:

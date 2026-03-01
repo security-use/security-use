@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -9,11 +10,11 @@ class Dependency:
     """Represents a parsed dependency."""
 
     name: str
-    version: str | None
-    version_spec: str | None = None
-    line_number: int | None = None
+    version: Optional[str]
+    version_spec: Optional[str] = None
+    line_number: Optional[int] = None
     extras: list[str] | None = None
-    source: str | None = None
+    source: Optional[str] = None
     ecosystem: str = "PyPI"
 
     @property

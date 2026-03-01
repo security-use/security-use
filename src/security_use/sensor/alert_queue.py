@@ -5,7 +5,7 @@ import logging
 import queue
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
 
 if TYPE_CHECKING:
     from .models import ActionTaken, SecurityEvent
@@ -17,7 +17,6 @@ class Alerter(Protocol):
     """Protocol for alerters."""
 
     def send_alert_sync(self, event: "SecurityEvent", action: "ActionTaken") -> bool:
-        """Send an alert synchronously. Returns True if successful."""
         ...
 
 
@@ -61,7 +60,7 @@ class AlertQueue:
         self.num_workers = num_workers
         self.drain_timeout = drain_timeout
 
-        self._queue: queue.Queue[AlertItem | None] = queue.Queue(maxsize=max_size)
+        self._queue: queue.Queue[Optional[AlertItem]] = queue.Queue(maxsize=max_size)
         self._workers: list[threading.Thread] = []
         self._running = False
         self._started = False
@@ -95,7 +94,7 @@ class AlertQueue:
 
             logger.debug(f"Alert queue started with {self.num_workers} workers")
 
-    def stop(self, timeout: float | None = None) -> None:
+    def stop(self, timeout: Optional[float] = None) -> None:
         """Stop the worker threads and drain the queue.
 
         Args:
@@ -148,7 +147,9 @@ class AlertQueue:
             return True
         except queue.Full:
             self.alerts_dropped += 1
-            logger.warning(f"Alert queue full, dropping alert: {event.event_type}")
+            logger.warning(
+                f"Alert queue full, dropping alert: {event.event_type}"
+            )
             return False
 
     def _worker_loop(self) -> None:
@@ -193,7 +194,7 @@ class AlertQueue:
 
 
 # Global singleton for easy access
-_default_queue: AlertQueue | None = None
+_default_queue: Optional[AlertQueue] = None
 _queue_lock = threading.Lock()
 
 

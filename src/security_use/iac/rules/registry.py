@@ -1,5 +1,7 @@
 """Rule registry for managing security rules."""
 
+from typing import Optional, Type
+
 from security_use.iac.rules.base import Rule
 
 
@@ -18,7 +20,7 @@ class RuleRegistry:
         """
         self._rules[rule.RULE_ID] = rule
 
-    def register_class(self, rule_class: type[Rule]) -> None:
+    def register_class(self, rule_class: Type[Rule]) -> None:
         """Register a rule class (instantiates it).
 
         Args:
@@ -27,7 +29,7 @@ class RuleRegistry:
         rule = rule_class()
         self.register(rule)
 
-    def get(self, rule_id: str) -> Rule | None:
+    def get(self, rule_id: str) -> Optional[Rule]:
         """Get a rule by ID.
 
         Args:
@@ -74,7 +76,7 @@ class RuleRegistry:
 
 
 # Global registry instance
-_registry: RuleRegistry | None = None
+_registry: Optional[RuleRegistry] = None
 
 
 def get_registry() -> RuleRegistry:
@@ -94,102 +96,76 @@ def _register_default_rules(registry: RuleRegistry) -> None:
     """Register all default rules."""
     # AWS Rules
     from security_use.iac.rules.aws import (
-        ALBAccessLogsRule,
-        CloudTrailEnabledRule,
-        EBSEncryptionRule,
-        IAMUserMFARule,
-        LambdaVPCRule,
-        RDSEncryptionRule,
         S3BucketEncryptionRule,
         S3BucketPublicAccessRule,
         SecurityGroupOpenIngressRule,
-        SNSTopicEncryptionRule,
-        SQSQueueEncryptionRule,
+        IAMUserMFARule,
+        RDSEncryptionRule,
+        EBSEncryptionRule,
+        CloudTrailEnabledRule,
         VPCFlowLogsRule,
     )
 
-    registry.register_class(ALBAccessLogsRule)
-    registry.register_class(CloudTrailEnabledRule)
-    registry.register_class(EBSEncryptionRule)
-    registry.register_class(IAMUserMFARule)
-    registry.register_class(LambdaVPCRule)
-    registry.register_class(RDSEncryptionRule)
     registry.register_class(S3BucketEncryptionRule)
     registry.register_class(S3BucketPublicAccessRule)
     registry.register_class(SecurityGroupOpenIngressRule)
-    registry.register_class(SNSTopicEncryptionRule)
-    registry.register_class(SQSQueueEncryptionRule)
+    registry.register_class(IAMUserMFARule)
+    registry.register_class(RDSEncryptionRule)
+    registry.register_class(EBSEncryptionRule)
+    registry.register_class(CloudTrailEnabledRule)
     registry.register_class(VPCFlowLogsRule)
 
     # Azure Rules
     from security_use.iac.rules.azure import (
-        AzureActivityLogRetentionRule,
-        AzureAppServiceHTTPSRule,
-        AzureFunctionAppHTTPSRule,
-        AzureKeyVaultSoftDeleteRule,
+        AzureStoragePublicAccessRule,
+        AzureStorageEncryptionRule,
         AzureNSGOpenIngressRule,
         AzureSQLEncryptionRule,
-        AzureStorageEncryptionRule,
-        AzureStorageHTTPSRule,
-        AzureStoragePublicAccessRule,
+        AzureKeyVaultSoftDeleteRule,
+        AzureActivityLogRetentionRule,
     )
 
-    registry.register_class(AzureActivityLogRetentionRule)
-    registry.register_class(AzureAppServiceHTTPSRule)
-    registry.register_class(AzureFunctionAppHTTPSRule)
-    registry.register_class(AzureKeyVaultSoftDeleteRule)
+    registry.register_class(AzureStoragePublicAccessRule)
+    registry.register_class(AzureStorageEncryptionRule)
     registry.register_class(AzureNSGOpenIngressRule)
     registry.register_class(AzureSQLEncryptionRule)
-    registry.register_class(AzureStorageEncryptionRule)
-    registry.register_class(AzureStorageHTTPSRule)
-    registry.register_class(AzureStoragePublicAccessRule)
+    registry.register_class(AzureKeyVaultSoftDeleteRule)
+    registry.register_class(AzureActivityLogRetentionRule)
 
     # GCP Rules
     from security_use.iac.rules.gcp import (
-        GCPAuditLoggingRule,
-        GCPCloudSQLEncryptionRule,
-        GCPCloudSQLSSLRule,
-        GCPComputeSSHKeysRule,
+        GCSBucketPublicAccessRule,
+        GCSBucketEncryptionRule,
         GCPFirewallOpenIngressRule,
+        GCPCloudSQLEncryptionRule,
         GCPKMSKeyRotationRule,
         GCPServiceAccountKeyRule,
-        GCSBucketEncryptionRule,
-        GCSBucketPublicAccessRule,
-        GKEPrivateClusterRule,
+        GCPAuditLoggingRule,
     )
 
-    registry.register_class(GCPAuditLoggingRule)
-    registry.register_class(GCPCloudSQLEncryptionRule)
-    registry.register_class(GCPCloudSQLSSLRule)
-    registry.register_class(GCPComputeSSHKeysRule)
-    registry.register_class(GCPFirewallOpenIngressRule)
-    registry.register_class(GCPKMSKeyRotationRule)
-    registry.register_class(GCSBucketEncryptionRule)
     registry.register_class(GCSBucketPublicAccessRule)
+    registry.register_class(GCSBucketEncryptionRule)
+    registry.register_class(GCPFirewallOpenIngressRule)
+    registry.register_class(GCPCloudSQLEncryptionRule)
+    registry.register_class(GCPKMSKeyRotationRule)
     registry.register_class(GCPServiceAccountKeyRule)
-    registry.register_class(GKEPrivateClusterRule)
+    registry.register_class(GCPAuditLoggingRule)
 
     # Kubernetes Rules
     from security_use.iac.rules.kubernetes import (
-        K8sAllowPrivilegeEscalationRule,
-        K8sHostNetworkRule,
-        K8sHostPathVolumeRule,
-        K8sNetworkPolicyRule,
-        K8sPrivilegedContainerRule,
-        K8sReadOnlyRootFilesystemRule,
-        K8sResourceLimitsRule,
         K8sRunAsRootRule,
+        K8sPrivilegedContainerRule,
+        K8sResourceLimitsRule,
+        K8sHostNetworkRule,
         K8sSecretsEnvVarsRule,
+        K8sReadOnlyRootFilesystemRule,
+        K8sNetworkPolicyRule,
     )
 
-    registry.register_class(K8sAllowPrivilegeEscalationRule)
-    registry.register_class(K8sHostNetworkRule)
-    registry.register_class(K8sHostPathVolumeRule)
-    registry.register_class(K8sNetworkPolicyRule)
-    registry.register_class(K8sPrivilegedContainerRule)
-    registry.register_class(K8sReadOnlyRootFilesystemRule)
-    registry.register_class(K8sResourceLimitsRule)
     registry.register_class(K8sRunAsRootRule)
+    registry.register_class(K8sPrivilegedContainerRule)
+    registry.register_class(K8sResourceLimitsRule)
+    registry.register_class(K8sHostNetworkRule)
     registry.register_class(K8sSecretsEnvVarsRule)
     registry.register_class(K8sReadOnlyRootFilesystemRule)
     registry.register_class(K8sNetworkPolicyRule)

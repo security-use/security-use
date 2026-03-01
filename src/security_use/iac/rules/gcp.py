@@ -1,8 +1,8 @@
 """GCP security rules for IaC scanning."""
 
+from security_use.models import Severity
 from security_use.iac.base import IaCResource
 from security_use.iac.rules.base import Rule, RuleResult
-from security_use.models import Severity
 
 
 class GCSBucketPublicAccessRule(Rule):
@@ -58,7 +58,9 @@ class GCSBucketEncryptionRule(Rule):
         "Cloud Storage bucket does not use customer-managed encryption keys (CMEK). "
         "While GCS encrypts data by default, CMEK provides additional control."
     )
-    REMEDIATION = "Configure a Cloud KMS key for bucket encryption."
+    REMEDIATION = (
+        "Configure a Cloud KMS key for bucket encryption."
+    )
     RESOURCE_TYPES = ["google_storage_bucket"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -70,9 +72,9 @@ class GCSBucketEncryptionRule(Rule):
 
         fix_code = None
         if not has_cmek:
-            fix_code = """encryption {
+            fix_code = '''encryption {
   default_kms_key_name = "projects/PROJECT/locations/LOCATION/keyRings/KEYRING/cryptoKeys/KEY"
-}"""
+}'''
 
         return self._create_result(has_cmek, resource, fix_code)
 
@@ -88,7 +90,8 @@ class GCPFirewallOpenIngressRule(Rule):
         "This exposes services to the entire internet."
     )
     REMEDIATION = (
-        "Restrict source_ranges to specific IP ranges. Avoid using 0.0.0.0/0 as the source."
+        "Restrict source_ranges to specific IP ranges. "
+        "Avoid using 0.0.0.0/0 as the source."
     )
     RESOURCE_TYPES = ["google_compute_firewall"]
 
@@ -138,11 +141,16 @@ class GCPCloudSQLEncryptionRule(Rule):
         "Cloud SQL instance does not use customer-managed encryption keys (CMEK). "
         "While Cloud SQL encrypts data by default, CMEK provides additional control."
     )
-    REMEDIATION = "Configure a Cloud KMS key for Cloud SQL encryption."
+    REMEDIATION = (
+        "Configure a Cloud KMS key for Cloud SQL encryption."
+    )
     RESOURCE_TYPES = ["google_sql_database_instance"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
         """Check if Cloud SQL uses CMEK."""
+        settings = resource.get_config("settings", default={})
+        ip_config = settings.get("ip_configuration", {})
+
         # Check for encryption key
         encryption_key = resource.get_config("encryption_key_name")
 
@@ -165,7 +173,9 @@ class GCPKMSKeyRotationRule(Rule):
         "Cloud KMS key does not have automatic rotation configured. "
         "Regular key rotation limits the impact of key compromise."
     )
-    REMEDIATION = "Configure automatic key rotation with a rotation period of 90 days or less."
+    REMEDIATION = (
+        "Configure automatic key rotation with a rotation period of 90 days or less."
+    )
     RESOURCE_TYPES = ["google_kms_crypto_key"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -191,15 +201,15 @@ class GCPServiceAccountKeyRule(Rule):
         "Service account has user-managed keys. User-managed keys are a security "
         "risk as they can be leaked or stolen. Prefer using attached service accounts."
     )
-    REMEDIATION = "Use attached service accounts or workload identity instead of user-managed keys."
+    REMEDIATION = (
+        "Use attached service accounts or workload identity instead of user-managed keys."
+    )
     RESOURCE_TYPES = ["google_service_account_key"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
         """Flag user-managed service account keys."""
         # Any google_service_account_key resource is a user-managed key
-        fix_code = (
-            "# Remove user-managed keys and use workload identity or attached service accounts"
-        )
+        fix_code = "# Remove user-managed keys and use workload identity or attached service accounts"
 
         return self._create_result(False, resource, fix_code)
 
@@ -214,7 +224,9 @@ class GCPAuditLoggingRule(Rule):
         "Audit logging is not enabled for all services. "
         "Audit logs are essential for security monitoring and compliance."
     )
-    REMEDIATION = "Enable audit logging for all services using google_project_iam_audit_config."
+    REMEDIATION = (
+        "Enable audit logging for all services using google_project_iam_audit_config."
+    )
     RESOURCE_TYPES = ["google_project_iam_audit_config"]
 
     def evaluate(self, resource: IaCResource) -> RuleResult:
@@ -227,7 +239,7 @@ class GCPAuditLoggingRule(Rule):
             if isinstance(audit_log_configs, list) and len(audit_log_configs) > 0:
                 return self._create_result(True, resource)
 
-        fix_code = """resource "google_project_iam_audit_config" "all" {
+        fix_code = '''resource "google_project_iam_audit_config" "all" {
   service = "allServices"
   audit_log_config {
     log_type = "ADMIN_READ"
@@ -238,94 +250,6 @@ class GCPAuditLoggingRule(Rule):
   audit_log_config {
     log_type = "DATA_WRITE"
   }
-}"""
+}'''
 
         return self._create_result(False, resource, fix_code)
-
-
-class GKEPrivateClusterRule(Rule):
-    """Check that GKE clusters use private nodes."""
-
-    RULE_ID = "CKV_GCP_18"
-    TITLE = "GKE cluster without private nodes"
-    SEVERITY = Severity.MEDIUM
-    DESCRIPTION = (
-        "GKE cluster is not configured with private nodes. "
-        "Private nodes provide better network isolation and security."
-    )
-    REMEDIATION = (
-        "Enable private nodes in the private_cluster_config block "
-        "to prevent nodes from having public IP addresses."
-    )
-    RESOURCE_TYPES = ["google_container_cluster"]
-
-    def evaluate(self, resource: IaCResource) -> RuleResult:
-        """Check if GKE cluster uses private nodes."""
-        private_config = resource.get_config("private_cluster_config", default={})
-        enable_private_nodes = private_config.get("enable_private_nodes", False)
-
-        fix_code = """private_cluster_config {
-  enable_private_nodes    = true
-  enable_private_endpoint = false
-  master_ipv4_cidr_block  = "172.16.0.0/28"
-}"""
-
-        return self._create_result(enable_private_nodes, resource, fix_code)
-
-
-class GCPCloudSQLSSLRule(Rule):
-    """Check that Cloud SQL requires SSL connections."""
-
-    RULE_ID = "CKV_GCP_6"
-    TITLE = "Cloud SQL without SSL enforcement"
-    SEVERITY = Severity.HIGH
-    DESCRIPTION = (
-        "Cloud SQL instance does not require SSL connections. "
-        "Unencrypted connections can expose data in transit."
-    )
-    REMEDIATION = "Enable require_ssl in the ip_configuration block."
-    RESOURCE_TYPES = ["google_sql_database_instance"]
-
-    def evaluate(self, resource: IaCResource) -> RuleResult:
-        """Check if Cloud SQL requires SSL."""
-        settings = resource.get_config("settings", default={})
-        ip_config = settings.get("ip_configuration", {})
-        require_ssl = ip_config.get("require_ssl", False)
-
-        fix_code = """settings {
-  ip_configuration {
-    require_ssl = true
-  }
-}"""
-
-        return self._create_result(require_ssl, resource, fix_code)
-
-
-class GCPComputeSSHKeysRule(Rule):
-    """Check that Compute instances don't use project-wide SSH keys."""
-
-    RULE_ID = "CKV_GCP_32"
-    TITLE = "Compute instance using project-wide SSH keys"
-    SEVERITY = Severity.MEDIUM
-    DESCRIPTION = (
-        "Compute instance uses project-wide SSH keys. "
-        "This can give unintended access to all project VMs."
-    )
-    REMEDIATION = (
-        "Block project-wide SSH keys by setting block_project_ssh_keys = true in metadata."
-    )
-    RESOURCE_TYPES = ["google_compute_instance"]
-
-    def evaluate(self, resource: IaCResource) -> RuleResult:
-        """Check if instance blocks project-wide SSH keys."""
-        metadata = resource.get_config("metadata", default={})
-        block_keys = metadata.get("block-project-ssh-keys", "false")
-
-        # Can be true, "true", "TRUE", etc.
-        passed = str(block_keys).lower() == "true"
-
-        fix_code = """metadata = {
-  block-project-ssh-keys = "true"
-}"""
-
-        return self._create_result(passed, resource, fix_code)

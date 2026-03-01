@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 
 class Severity(Enum):
@@ -14,7 +15,7 @@ class Severity(Enum):
     UNKNOWN = "UNKNOWN"
 
     @classmethod
-    def from_cvss(cls, score: float | None) -> "Severity":
+    def from_cvss(cls, score: Optional[float]) -> "Severity":
         """Convert CVSS score to severity level."""
         if score is None:
             return cls.UNKNOWN
@@ -38,8 +39,8 @@ class Vulnerability:
     title: str
     description: str
     affected_versions: str
-    fixed_version: str | None = None
-    cvss_score: float | None = None
+    fixed_version: Optional[str] = None
+    cvss_score: Optional[float] = None
     references: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -71,7 +72,7 @@ class IaCFinding:
     line_number: int
     description: str
     remediation: str
-    fix_code: str | None = None
+    fix_code: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
@@ -106,16 +107,22 @@ class ScanResult:
     @property
     def critical_count(self) -> int:
         """Count of critical severity issues."""
-        return sum(1 for v in self.vulnerabilities if v.severity == Severity.CRITICAL) + sum(
-            1 for f in self.iac_findings if f.severity == Severity.CRITICAL
+        return sum(
+            1
+            for v in self.vulnerabilities
+            if v.severity == Severity.CRITICAL
+        ) + sum(
+            1
+            for f in self.iac_findings
+            if f.severity == Severity.CRITICAL
         )
 
     @property
     def high_count(self) -> int:
         """Count of high severity issues."""
-        return sum(1 for v in self.vulnerabilities if v.severity == Severity.HIGH) + sum(
-            1 for f in self.iac_findings if f.severity == Severity.HIGH
-        )
+        return sum(
+            1 for v in self.vulnerabilities if v.severity == Severity.HIGH
+        ) + sum(1 for f in self.iac_findings if f.severity == Severity.HIGH)
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""

@@ -4,8 +4,9 @@ import re
 import threading
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from time import time
+from typing import Optional
 
 from .models import AttackType, MatchedPattern, RequestData, SecurityEvent
 
@@ -70,74 +71,6 @@ COMMAND_INJECTION_PATTERNS = [
     (r"&\s*(ls|cat|rm|wget|curl|nc|bash|sh)\b", "Background command injection"),
     (r";\s*(dir|type|del|copy|move|net|powershell|cmd)\b", "Windows command injection"),
     (r"\|\s*(dir|type|del|copy|move|net)\b", "Windows pipe injection"),
-]
-
-# SSRF (Server-Side Request Forgery) patterns
-SSRF_PATTERNS = [
-    (r"(?i)(localhost|127\.0\.0\.1|0\.0\.0\.0)", "Localhost access attempt"),
-    (r"(?i)(169\.254\.169\.254)", "AWS metadata endpoint access"),
-    (r"(?i)(metadata\.google\.internal)", "GCP metadata endpoint access"),
-    (r"(?i)(100\.100\.100\.200)", "Alibaba Cloud metadata access"),
-    (r"(?i)file://", "File protocol access"),
-    (r"(?i)gopher://", "Gopher protocol access"),
-    (r"(?i)dict://", "Dict protocol access"),
-    (r"(?i)ftp://", "FTP protocol access"),
-    (r"(?i)(10\.\d{1,3}\.\d{1,3}\.\d{1,3})", "Private IP access (10.x.x.x)"),
-    (r"(?i)(172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})", "Private IP access (172.16-31.x.x)"),
-    (r"(?i)(192\.168\.\d{1,3}\.\d{1,3})", "Private IP access (192.168.x.x)"),
-]
-
-# SSTI (Server-Side Template Injection) patterns
-SSTI_PATTERNS = [
-    (r"\{\{\s*[\d+\-*/]+\s*\}\}", "Jinja2 expression injection"),
-    (r"\{\{.*config.*\}\}", "Jinja2 config access"),
-    (r"\{\{.*__class__.*\}\}", "Python class introspection"),
-    (r"\{\{.*__mro__.*\}\}", "Python MRO traversal"),
-    (r"\{\{.*__globals__.*\}\}", "Python globals access"),
-    (r"\{\{.*__builtins__.*\}\}", "Python builtins access"),
-    (r"\$\{.*\}", "Expression language injection"),
-    (r"#\{.*\}", "Spring EL injection"),
-    (r"<%.*%>", "ERB/JSP template injection"),
-    (r"\{\{.*\|safe.*\}\}", "Template filter bypass attempt"),
-]
-
-# NoSQL Injection patterns (MongoDB, etc.)
-NOSQL_INJECTION_PATTERNS = [
-    (r"\$where\s*:", "MongoDB $where injection"),
-    (r"\$gt\s*:", "MongoDB comparison operator injection"),
-    (r"\$lt\s*:", "MongoDB comparison operator injection"),
-    (r"\$ne\s*:", "MongoDB not-equal injection"),
-    (r"\$regex\s*:", "MongoDB regex injection"),
-    (r"\$or\s*:\s*\[", "MongoDB $or injection"),
-    (r"\$and\s*:\s*\[", "MongoDB $and injection"),
-    (r"(?i)[\'\"]?\$[a-z]+[\'\"]?\s*:", "Generic MongoDB operator injection"),
-    (r"(?i)\.find\s*\(\s*\{", "MongoDB find injection attempt"),
-]
-
-# XXE (XML External Entity) patterns
-XXE_PATTERNS = [
-    (r"<!ENTITY\s+", "XML Entity declaration"),
-    (r"<!DOCTYPE[^>]*\[", "DOCTYPE with DTD"),
-    (r"SYSTEM\s+['\"]file://", "XXE file:// access"),
-    (r"SYSTEM\s+['\"]http://", "XXE http:// access"),
-    (r"SYSTEM\s+['\"]https://", "XXE https:// access"),
-    (r"PUBLIC\s+['\"]", "XXE PUBLIC declaration"),
-    (r"%[a-zA-Z_][a-zA-Z0-9_]*;", "Parameter entity reference"),
-    (r"&#x[0-9a-fA-F]+;", "Hex encoded entity (potential XXE)"),
-]
-
-# Deserialization attack patterns
-DESERIALIZATION_PATTERNS = [
-    (r"(?i)java\.lang\.Runtime", "Java Runtime class (RCE)"),
-    (r"(?i)java\.lang\.ProcessBuilder", "Java ProcessBuilder (RCE)"),
-    (r"(?i)rO0AB", "Java serialized object (base64)"),
-    (r"(?i)aced0005", "Java serialized object (hex)"),
-    (r"O:\d+:\"[^\"]+\"", "PHP serialized object"),
-    (r"a:\d+:\{", "PHP serialized array"),
-    (r"(?i)__reduce__", "Python pickle reduce"),
-    (r"(?i)pickle\.loads", "Python pickle load"),
-    (r"(?i)yaml\.unsafe_load", "Python YAML unsafe load"),
-    (r"(?i)cPickle", "Python cPickle (unsafe)"),
 ]
 
 # Suspicious headers
@@ -255,7 +188,7 @@ class RateLimiter:
             self._requests[ip] = [t for t in self._requests[ip] if t > cutoff]
             return len(self._requests[ip])
 
-    def reset(self, ip: str | None = None) -> None:
+    def reset(self, ip: Optional[str] = None) -> None:
         """Reset rate limit tracking."""
         with self._lock:
             if ip:
@@ -285,7 +218,7 @@ class AttackDetector:
 
     def __init__(
         self,
-        enabled_detectors: list[str] | None = None,
+        enabled_detectors: Optional[list[str]] = None,
         rate_limit_threshold: int = 100,
         rate_limit_window: int = 60,
         rate_limit_cleanup_interval: int = 300,
@@ -305,14 +238,9 @@ class AttackDetector:
         """
         self.enabled_detectors = enabled_detectors or [
             "sqli",
-            "nosql",
             "xss",
             "path_traversal",
             "command_injection",
-            "ssrf",
-            "ssti",
-            "xxe",
-            "deserialization",
             "rate_limit",
             "suspicious_headers",
         ]
@@ -376,66 +304,6 @@ class AttackDetector:
                 for p, desc in COMMAND_INJECTION_PATTERNS
             ]
 
-        if "ssrf" in self.enabled_detectors:
-            patterns[AttackType.SSRF] = [
-                DetectionPattern(
-                    pattern=p,
-                    compiled=re.compile(p),
-                    attack_type=AttackType.SSRF,
-                    severity="HIGH",
-                    description=desc,
-                )
-                for p, desc in SSRF_PATTERNS
-            ]
-
-        if "ssti" in self.enabled_detectors:
-            patterns[AttackType.SSTI] = [
-                DetectionPattern(
-                    pattern=p,
-                    compiled=re.compile(p),
-                    attack_type=AttackType.SSTI,
-                    severity="HIGH",
-                    description=desc,
-                )
-                for p, desc in SSTI_PATTERNS
-            ]
-
-        if "nosql" in self.enabled_detectors:
-            patterns[AttackType.NOSQL_INJECTION] = [
-                DetectionPattern(
-                    pattern=p,
-                    compiled=re.compile(p),
-                    attack_type=AttackType.NOSQL_INJECTION,
-                    severity="HIGH",
-                    description=desc,
-                )
-                for p, desc in NOSQL_INJECTION_PATTERNS
-            ]
-
-        if "xxe" in self.enabled_detectors:
-            patterns[AttackType.XXE] = [
-                DetectionPattern(
-                    pattern=p,
-                    compiled=re.compile(p, re.IGNORECASE),
-                    attack_type=AttackType.XXE,
-                    severity="HIGH",
-                    description=desc,
-                )
-                for p, desc in XXE_PATTERNS
-            ]
-
-        if "deserialization" in self.enabled_detectors:
-            patterns[AttackType.DESERIALIZATION] = [
-                DetectionPattern(
-                    pattern=p,
-                    compiled=re.compile(p),
-                    attack_type=AttackType.DESERIALIZATION,
-                    severity="CRITICAL",
-                    description=desc,
-                )
-                for p, desc in DESERIALIZATION_PATTERNS
-            ]
-
         if "suspicious_headers" in self.enabled_detectors:
             patterns[AttackType.SUSPICIOUS_HEADER] = [
                 DetectionPattern(
@@ -454,7 +322,7 @@ class AttackDetector:
         self,
         value: str,
         location: str,
-        field: str | None,
+        field: Optional[str],
         request: RequestData,
     ) -> list[SecurityEvent]:
         """Check a string value against all patterns."""
@@ -468,7 +336,7 @@ class AttackDetector:
                         SecurityEvent(
                             event_type=attack_type,
                             severity=pattern.severity,
-                            timestamp=datetime.utcnow(),
+                            timestamp=datetime.now(timezone.utc),
                             source_ip=request.source_ip,
                             path=request.path,
                             method=request.method,
@@ -507,7 +375,7 @@ class AttackDetector:
                     SecurityEvent(
                         event_type=AttackType.RATE_LIMIT_EXCEEDED,
                         severity="MEDIUM",
-                        timestamp=datetime.utcnow(),
+                        timestamp=datetime.now(timezone.utc),
                         source_ip=request.source_ip,
                         path=request.path,
                         method=request.method,

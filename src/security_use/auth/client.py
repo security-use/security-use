@@ -1,20 +1,21 @@
 """Dashboard API client for uploading scan results."""
 
 import platform
+from typing import Optional
+from datetime import datetime
 
 import httpx
 
+from .config import OAUTH_CONFIG, AuthConfig
+from .oauth import OAuthFlow, OAuthError
 from security_use import __version__
 from security_use.models import ScanResult
-
-from .config import OAUTH_CONFIG, AuthConfig
-from .oauth import OAuthError, OAuthFlow
 
 
 class DashboardClient:
     """Client for the SecurityUse dashboard API."""
 
-    def __init__(self, config: AuthConfig | None = None):
+    def __init__(self, config: Optional[AuthConfig] = None):
         self.config = config or AuthConfig()
         self.api_url = OAUTH_CONFIG["api_url"]
         self.oauth = OAuthFlow(self.config)
@@ -44,10 +45,10 @@ class DashboardClient:
                 try:
                     new_token = self.oauth.refresh_token(self.config.token.refresh_token)
                     self.config.save_token(new_token, self.config.user)
-                except OAuthError as e:
+                except OAuthError:
                     raise OAuthError(
                         "Session expired. Run 'security-use auth login' to re-authenticate."
-                    ) from e
+                    )
             else:
                 raise OAuthError(
                     "Session expired. Run 'security-use auth login' to re-authenticate."
@@ -57,9 +58,9 @@ class DashboardClient:
         self,
         result: ScanResult,
         scan_type: str = "deps",
-        repo_name: str | None = None,
-        branch: str | None = None,
-        commit_sha: str | None = None,
+        repo_name: Optional[str] = None,
+        branch: Optional[str] = None,
+        commit_sha: Optional[str] = None,
     ) -> dict:
         """Upload scan results to the dashboard.
 
@@ -82,38 +83,30 @@ class DashboardClient:
         findings = []
 
         for vuln in result.vulnerabilities:
-            findings.append(
-                {
-                    "finding_type": "vulnerability",
-                    "category": "deps",
-                    "severity": vuln.severity.value,
-                    "title": vuln.title,
-                    "description": vuln.description or "",
-                    "recommendation": (
-                        f"Upgrade to version {vuln.fixed_version}"
-                        if vuln.fixed_version
-                        else "No fix available"
-                    ),
-                    "cve_id": vuln.id,  # Vulnerability ID is typically the CVE ID
-                    "package_name": vuln.package,
-                    "package_version": vuln.installed_version,
-                    "fixed_version": vuln.fixed_version,
-                }
-            )
+            findings.append({
+                "finding_type": "vulnerability",
+                "category": "deps",
+                "severity": vuln.severity.value,
+                "title": vuln.title,
+                "description": vuln.description or "",
+                "recommendation": f"Upgrade to version {vuln.fixed_version}" if vuln.fixed_version else "No fix available",
+                "cve_id": vuln.id,  # Vulnerability ID is typically the CVE ID
+                "package_name": vuln.package,
+                "package_version": vuln.installed_version,
+                "fixed_version": vuln.fixed_version,
+            })
 
         for finding in result.iac_findings:
-            findings.append(
-                {
-                    "finding_type": "misconfiguration",
-                    "category": "iac",
-                    "severity": finding.severity.value,
-                    "title": finding.title,
-                    "description": finding.description or "",
-                    "file_path": finding.file_path,
-                    "line_number": finding.line_number,
-                    "recommendation": finding.remediation or "",
-                }
-            )
+            findings.append({
+                "finding_type": "misconfiguration",
+                "category": "iac",
+                "severity": finding.severity.value,
+                "title": finding.title,
+                "description": finding.description or "",
+                "file_path": finding.file_path,
+                "line_number": finding.line_number,
+                "recommendation": finding.remediation or "",
+            })
 
         payload = {
             "scan_type": scan_type,
@@ -142,7 +135,9 @@ class DashboardClient:
                     )
 
                 if response.status_code == 403:
-                    raise OAuthError("Insufficient permissions. Token lacks scan:upload scope.")
+                    raise OAuthError(
+                        "Insufficient permissions. Token lacks scan:upload scope."
+                    )
 
                 if response.status_code not in (200, 201):
                     raise OAuthError(f"Failed to upload scan: {response.text}")
@@ -150,11 +145,11 @@ class DashboardClient:
                 return response.json()
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}") from e
+            raise OAuthError(f"Network error: {e}")
 
     def get_scans(
         self,
-        project_name: str | None = None,
+        project_name: Optional[str] = None,
         limit: int = 10,
     ) -> list[dict]:
         """Get recent scans from the dashboard.
@@ -194,7 +189,7 @@ class DashboardClient:
                 return response.json().get("scans", [])
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}") from e
+            raise OAuthError(f"Network error: {e}")
 
     def get_projects(self) -> list[dict]:
         """Get list of projects for the authenticated user.
@@ -225,4 +220,4 @@ class DashboardClient:
                 return response.json().get("projects", [])
 
         except httpx.RequestError as e:
-            raise OAuthError(f"Network error: {e}") from e
+            raise OAuthError(f"Network error: {e}")

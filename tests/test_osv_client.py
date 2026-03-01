@@ -1,9 +1,10 @@
 """Tests for OSV API client."""
 
+import pytest
 from unittest.mock import Mock, patch
 
-from security_use.models import Severity
 from security_use.osv_client import OSVClient
+from security_use.models import Severity
 
 
 class TestOSVClient:
