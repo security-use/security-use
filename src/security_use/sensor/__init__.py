@@ -74,7 +74,13 @@ Endpoint analysis:
 
 from .alert_queue import AlertQueue, get_alert_queue
 from .circuit_breaker import CircuitBreaker, CircuitState, CircuitStats
-from .config import SensorConfig, create_config
+from .config import (
+    AllowlistConfig,
+    DetectorConfig,
+    DetectorMode,
+    SensorConfig,
+    create_config,
+)
 from .dashboard_alerter import DashboardAlerter
 from .detector import AttackDetector, RateLimiter
 from .endpoint_analyzer import (
@@ -129,6 +135,9 @@ __all__ = [
     # Configuration
     "SensorConfig",
     "create_config",
+    "AllowlistConfig",
+    "DetectorConfig",
+    "DetectorMode",
     # Models
     "SecurityEvent",
     "RequestData",

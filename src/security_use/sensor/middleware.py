@@ -202,6 +202,9 @@ class SecurityMiddleware:
             rate_limit_window=self.config.rate_limit_window,
             rate_limit_cleanup_interval=self.config.rate_limit_cleanup_interval,
             rate_limit_max_ips=self.config.rate_limit_max_ips,
+            min_block_confidence=self.config.min_block_confidence,
+            min_alert_confidence=self.config.min_alert_confidence,
+            allowlist=self.config.allowlist if self.config.allowlist.paths or self.config.allowlist.source_ips or self.config.allowlist.user_agents or self.config.allowlist.payload_patterns else None,
         )
 
         # Set up alerters based on config
@@ -273,11 +276,14 @@ class SecurityMiddleware:
         events = self.detector.analyze_request(request_data)
 
         if events:
-            action = (
-                ActionTaken.BLOCKED
-                if self.config.block_on_detection
-                else ActionTaken.LOGGED
+            # Determine blocking based on confidence and learning mode
+            should_block = (
+                self.config.block_on_detection
+                and not self.config.learning_mode
+                and self.detector.should_block(events)
             )
+
+            action = ActionTaken.BLOCKED if should_block else ActionTaken.LOGGED
 
             # Send alerts asynchronously with error handling
             for event in events:
@@ -292,7 +298,7 @@ class SecurityMiddleware:
                         name=f"webhook_alert_{event.event_type.value}",
                     )
 
-            if self.config.block_on_detection:
+            if should_block:
                 # Return 403 Forbidden
                 await self._send_blocked_response(send, events[0])
                 return
@@ -481,6 +487,9 @@ class FlaskSecurityMiddleware:
             rate_limit_window=self.config.rate_limit_window,
             rate_limit_cleanup_interval=self.config.rate_limit_cleanup_interval,
             rate_limit_max_ips=self.config.rate_limit_max_ips,
+            min_block_confidence=self.config.min_block_confidence,
+            min_alert_confidence=self.config.min_alert_confidence,
+            allowlist=self.config.allowlist if self.config.allowlist.paths or self.config.allowlist.source_ips or self.config.allowlist.user_agents or self.config.allowlist.payload_patterns else None,
         )
 
         # Set up alerters based on config
@@ -544,11 +553,14 @@ class FlaskSecurityMiddleware:
         events = self.detector.analyze_request(request_data)
 
         if events:
-            action = (
-                ActionTaken.BLOCKED
-                if self.config.block_on_detection
-                else ActionTaken.LOGGED
+            # Determine blocking based on confidence and learning mode
+            should_block = (
+                self.config.block_on_detection
+                and not self.config.learning_mode
+                and self.detector.should_block(events)
             )
+
+            action = ActionTaken.BLOCKED if should_block else ActionTaken.LOGGED
 
             # Queue alerts for background sending (non-blocking)
             for event in events:
@@ -557,7 +569,7 @@ class FlaskSecurityMiddleware:
                 if self.webhook_alerter:
                     self._alert_queue.enqueue(event, action, self.webhook_alerter)
 
-            if self.config.block_on_detection:
+            if should_block:
                 # Return 403 Forbidden
                 return self._blocked_response(start_response)
 

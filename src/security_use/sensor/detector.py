@@ -11,6 +11,9 @@ from typing import Optional
 from .models import AttackType, MatchedPattern, RequestData, SecurityEvent
 
 
+CONFIDENCE_LEVELS = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+
+
 @dataclass
 class DetectionPattern:
     """A pattern for detecting attacks."""
@@ -20,64 +23,87 @@ class DetectionPattern:
     attack_type: AttackType
     severity: str
     description: str
+    confidence: str = "HIGH"
 
 
-# SQL Injection patterns
-SQLI_PATTERNS = [
-    (r"(?i)(\%27)|(\')|(\-\-)|(\%23)|(#)", "Basic SQL injection characters"),
-    (r"(?i)((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))", "SQL tautology attempt"),
-    (r"(?i)\w*((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))", "OR injection"),
-    (r"(?i)((\%27)|(\'))union", "UNION injection"),
-    (r"(?i)union\s+(all\s+)?select", "UNION SELECT"),
-    (r"(?i)(select|insert|update|delete|drop|create|alter)\s+", "SQL keyword"),
+# High confidence SQL injection patterns (definitely attacks)
+SQLI_HIGH_CONFIDENCE = [
+    (r"['\"](\s|\+)*(or|and)(\s|\+)*['\"]?\s*['\"]?\s*(=|like)", "OR/AND injection"),
+    (r"['\"]\s*;\s*(drop|delete|truncate|update|insert|create|alter)\s", "Stacked query"),
+    (r"['\"]\s*--", "Comment injection"),
+    (r"['\"]\s*/\*", "Block comment injection"),
+    (r"(\d+|['\"])\s+union(\s+all)?\s+select", "UNION injection"),
+    (r"['\"](\s|\+)*(or|and)(\s|\+)*1(\s|\+)*=(\s|\+)*1", "Tautology injection"),
+    (r"['\"](\s|\+)*(or|and)(\s|\+)*['\"][^'\"]+['\"](\s|\+)*=(\s|\+)*['\"]", "String tautology"),
     (r"(?i)exec(\s|\+)+(s|x)p\w+", "SQL stored procedure execution"),
-    (r"(?i);\s*(drop|delete|truncate|update|insert)", "SQL statement injection"),
 ]
 
-# XSS patterns
+# Medium confidence patterns (likely attacks, but could be false positive)
+SQLI_MEDIUM_CONFIDENCE = [
+    (r"(?i)((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))", "Encoded OR injection"),
+    (r"(?i)((\%27)|(\'))union", "UNION injection with quote"),
+    (r"(?i)(%27|%22)(\s|%20)*(or|and)(\s|%20)*(%27|%22)?", "Encoded OR/AND"),
+    (r"(?i)--\s*(drop|delete|select|update|insert)", "Comment with SQL"),
+    (r"(?i)((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))", "SQL tautology attempt"),
+]
+
+# Low confidence patterns (suspicious but often benign - log only)
+SQLI_LOW_CONFIDENCE = [
+    (r"(?i);\s*(select|insert|update|delete)\s", "SQL keyword after semicolon"),
+    (r"(?i)(\%27)|(\')|(\-\-)|(\%23)|(#)", "Basic SQL meta-characters"),
+]
+
+# Combined with confidence levels
+SQLI_PATTERNS = [
+    *[(p, d, "HIGH") for p, d in SQLI_HIGH_CONFIDENCE],
+    *[(p, d, "MEDIUM") for p, d in SQLI_MEDIUM_CONFIDENCE],
+    *[(p, d, "LOW") for p, d in SQLI_LOW_CONFIDENCE],
+]
+
+# XSS patterns (all HIGH confidence - HTML tags are rarely legitimate in params)
 XSS_PATTERNS = [
-    (r"(?i)<script[^>]*>", "Script tag injection"),
-    (r"(?i)javascript\s*:", "JavaScript protocol"),
-    (r"(?i)on\w+\s*=", "Event handler injection"),
-    (r"(?i)<iframe[^>]*>", "IFrame injection"),
-    (r"(?i)<img[^>]+onerror", "Image onerror handler"),
-    (r"(?i)<svg[^>]+onload", "SVG onload handler"),
-    (r"(?i)expression\s*\(", "CSS expression"),
-    (r"(?i)vbscript\s*:", "VBScript protocol"),
-    (r"(?i)<embed[^>]*>", "Embed tag injection"),
-    (r"(?i)<object[^>]*>", "Object tag injection"),
+    (r"(?i)<script[^>]*>", "Script tag injection", "HIGH"),
+    (r"(?i)javascript\s*:", "JavaScript protocol", "HIGH"),
+    (r"(?i)on\w+\s*=", "Event handler injection", "HIGH"),
+    (r"(?i)<iframe[^>]*>", "IFrame injection", "HIGH"),
+    (r"(?i)<img[^>]+onerror", "Image onerror handler", "HIGH"),
+    (r"(?i)<svg[^>]+onload", "SVG onload handler", "HIGH"),
+    (r"(?i)expression\s*\(", "CSS expression", "MEDIUM"),
+    (r"(?i)vbscript\s*:", "VBScript protocol", "HIGH"),
+    (r"(?i)<embed[^>]*>", "Embed tag injection", "MEDIUM"),
+    (r"(?i)<object[^>]*>", "Object tag injection", "MEDIUM"),
 ]
 
 # Path traversal patterns
 PATH_TRAVERSAL_PATTERNS = [
-    (r"\.\./", "Basic path traversal"),
-    (r"\.\.\\", "Windows path traversal"),
-    (r"%2e%2e%2f", "URL encoded path traversal"),
-    (r"%2e%2e/", "Partial URL encoded traversal"),
-    (r"\.%2e/", "Mixed encoding traversal"),
-    (r"%2e\./", "Mixed encoding traversal variant"),
-    (r"%252e%252e%252f", "Double URL encoded traversal"),
-    (r"/etc/passwd", "Unix password file access"),
-    (r"/etc/shadow", "Unix shadow file access"),
-    (r"c:\\windows", "Windows system directory"),
+    (r"\.\./", "Basic path traversal", "HIGH"),
+    (r"\.\.\\", "Windows path traversal", "HIGH"),
+    (r"%2e%2e%2f", "URL encoded path traversal", "HIGH"),
+    (r"%2e%2e/", "Partial URL encoded traversal", "HIGH"),
+    (r"\.%2e/", "Mixed encoding traversal", "HIGH"),
+    (r"%2e\./", "Mixed encoding traversal variant", "HIGH"),
+    (r"%252e%252e%252f", "Double URL encoded traversal", "HIGH"),
+    (r"/etc/passwd", "Unix password file access", "HIGH"),
+    (r"/etc/shadow", "Unix shadow file access", "HIGH"),
+    (r"c:\\windows", "Windows system directory", "HIGH"),
 ]
 
 # Command injection patterns
 COMMAND_INJECTION_PATTERNS = [
-    (r";\s*(ls|cat|rm|wget|curl|nc|bash|sh|python|perl|ruby)\b", "Unix command injection"),
-    (r"\|\s*(ls|cat|rm|wget|curl|nc|bash|sh)\b", "Pipe command injection"),
-    (r"`[^`]+`", "Backtick command execution"),
-    (r"\$\([^)]+\)", "Command substitution"),
-    (r"&\s*(ls|cat|rm|wget|curl|nc|bash|sh)\b", "Background command injection"),
-    (r";\s*(dir|type|del|copy|move|net|powershell|cmd)\b", "Windows command injection"),
-    (r"\|\s*(dir|type|del|copy|move|net)\b", "Windows pipe injection"),
+    (r";\s*(ls|cat|rm|wget|curl|nc|bash|sh|python|perl|ruby)\b", "Unix command injection", "HIGH"),
+    (r"\|\s*(ls|cat|rm|wget|curl|nc|bash|sh)\b", "Pipe command injection", "HIGH"),
+    (r"`[^`]+`", "Backtick command execution", "HIGH"),
+    (r"\$\([^)]+\)", "Command substitution", "HIGH"),
+    (r"&\s*(ls|cat|rm|wget|curl|nc|bash|sh)\b", "Background command injection", "HIGH"),
+    (r";\s*(dir|type|del|copy|move|net|powershell|cmd)\b", "Windows command injection", "HIGH"),
+    (r"\|\s*(dir|type|del|copy|move|net)\b", "Windows pipe injection", "HIGH"),
 ]
 
 # Suspicious headers
 SUSPICIOUS_HEADER_PATTERNS = [
-    (r"(?i)(sqlmap|nikto|nmap|masscan|dirbuster|gobuster)", "Known attack tool"),
-    (r"(?i)(havij|acunetix|nessus|openvas|burp)", "Security scanner"),
-    (r"(?i)(\$\{|\%\{)", "Log4j/Template injection attempt"),
+    (r"(?i)(sqlmap|nikto|nmap|masscan|dirbuster|gobuster)", "Known attack tool", "HIGH"),
+    (r"(?i)(havij|acunetix|nessus|openvas|burp)", "Security scanner", "HIGH"),
+    (r"(?i)(\$\{|\%\{)", "Log4j/Template injection attempt", "HIGH"),
 ]
 
 
@@ -223,6 +249,9 @@ class AttackDetector:
         rate_limit_window: int = 60,
         rate_limit_cleanup_interval: int = 300,
         rate_limit_max_ips: int = 100000,
+        min_block_confidence: str = "HIGH",
+        min_alert_confidence: str = "MEDIUM",
+        allowlist: Optional["AllowlistConfig"] = None,
     ):
         """Initialize the attack detector.
 
@@ -235,6 +264,9 @@ class AttackDetector:
             rate_limit_window: Time window in seconds for rate limiting.
             rate_limit_cleanup_interval: Seconds between cleanup runs.
             rate_limit_max_ips: Maximum number of IPs to track.
+            min_block_confidence: Minimum confidence level to block requests.
+            min_alert_confidence: Minimum confidence level to create alerts.
+            allowlist: Optional allowlist configuration for skipping detection.
         """
         self.enabled_detectors = enabled_detectors or [
             "sqli",
@@ -250,6 +282,9 @@ class AttackDetector:
             cleanup_interval=rate_limit_cleanup_interval,
             max_tracked_ips=rate_limit_max_ips,
         )
+        self.min_block_confidence = CONFIDENCE_LEVELS.get(min_block_confidence, 3)
+        self.min_alert_confidence = CONFIDENCE_LEVELS.get(min_alert_confidence, 2)
+        self.allowlist = allowlist
         self._patterns = self._compile_patterns()
 
     def _compile_patterns(self) -> dict[AttackType, list[DetectionPattern]]:
@@ -260,12 +295,13 @@ class AttackDetector:
             patterns[AttackType.SQL_INJECTION] = [
                 DetectionPattern(
                     pattern=p,
-                    compiled=re.compile(p),
+                    compiled=re.compile(p, re.IGNORECASE),
                     attack_type=AttackType.SQL_INJECTION,
-                    severity="HIGH",
+                    severity="HIGH" if conf == "HIGH" else "MEDIUM",
                     description=desc,
+                    confidence=conf,
                 )
-                for p, desc in SQLI_PATTERNS
+                for p, desc, conf in SQLI_PATTERNS
             ]
 
         if "xss" in self.enabled_detectors:
@@ -274,10 +310,11 @@ class AttackDetector:
                     pattern=p,
                     compiled=re.compile(p),
                     attack_type=AttackType.XSS,
-                    severity="MEDIUM",
+                    severity="MEDIUM" if conf != "HIGH" else "MEDIUM",
                     description=desc,
+                    confidence=conf,
                 )
-                for p, desc in XSS_PATTERNS
+                for p, desc, conf in XSS_PATTERNS
             ]
 
         if "path_traversal" in self.enabled_detectors:
@@ -288,8 +325,9 @@ class AttackDetector:
                     attack_type=AttackType.PATH_TRAVERSAL,
                     severity="HIGH",
                     description=desc,
+                    confidence=conf,
                 )
-                for p, desc in PATH_TRAVERSAL_PATTERNS
+                for p, desc, conf in PATH_TRAVERSAL_PATTERNS
             ]
 
         if "command_injection" in self.enabled_detectors:
@@ -300,8 +338,9 @@ class AttackDetector:
                     attack_type=AttackType.COMMAND_INJECTION,
                     severity="CRITICAL",
                     description=desc,
+                    confidence=conf,
                 )
-                for p, desc in COMMAND_INJECTION_PATTERNS
+                for p, desc, conf in COMMAND_INJECTION_PATTERNS
             ]
 
         if "suspicious_headers" in self.enabled_detectors:
@@ -312,8 +351,9 @@ class AttackDetector:
                     attack_type=AttackType.SUSPICIOUS_HEADER,
                     severity="MEDIUM",
                     description=desc,
+                    confidence=conf,
                 )
-                for p, desc in SUSPICIOUS_HEADER_PATTERNS
+                for p, desc, conf in SUSPICIOUS_HEADER_PATTERNS
             ]
 
         return patterns
@@ -330,6 +370,11 @@ class AttackDetector:
 
         for attack_type, patterns in self._patterns.items():
             for pattern in patterns:
+                # Skip patterns below alert confidence threshold
+                pattern_conf = CONFIDENCE_LEVELS.get(pattern.confidence, 3)
+                if pattern_conf < self.min_alert_confidence:
+                    continue
+
                 match = pattern.compiled.search(value)
                 if match:
                     events.append(
@@ -349,6 +394,7 @@ class AttackDetector:
                             request_headers=request.headers,
                             request_body=request.body,
                             request_id=request.request_id,
+                            confidence=pattern.confidence,
                             description=pattern.description,
                         )
                     )
@@ -356,6 +402,29 @@ class AttackDetector:
                     break
 
         return events
+
+    def should_block(self, events: list[SecurityEvent]) -> bool:
+        """Check if any event warrants blocking based on confidence.
+
+        Args:
+            events: List of detected security events.
+
+        Returns:
+            True if any event meets the blocking confidence threshold.
+        """
+        return any(
+            CONFIDENCE_LEVELS.get(
+                e.confidence if isinstance(e.confidence, str) else "HIGH", 3
+            )
+            >= self.min_block_confidence
+            for e in events
+        )
+
+    def _is_allowed(self, request: RequestData) -> bool:
+        """Check if request matches any allowlist rule."""
+        if self.allowlist is None:
+            return False
+        return self.allowlist.is_request_allowed(request)
 
     def analyze_request(self, request: RequestData) -> list[SecurityEvent]:
         """Analyze an HTTP request for malicious patterns.
@@ -366,6 +435,10 @@ class AttackDetector:
         Returns:
             List of detected security events.
         """
+        # Check allowlist first (fast path)
+        if self._is_allowed(request):
+            return []
+
         events: list[SecurityEvent] = []
 
         # Check rate limiting

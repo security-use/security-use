@@ -1767,3 +1767,193 @@ class TestASGIBodyHandling:
 
         # Body should still be available to application
         assert received_body == body
+
+
+# ========================================================================
+# Issue #26: Context-aware SQL injection detection with confidence scoring
+# ========================================================================
+
+
+def _make_request(path="/", query=None, body=None, headers=None, source_ip="127.0.0.1"):
+    """Helper to create a RequestData for testing."""
+    return RequestData(
+        method="GET",
+        path=path,
+        query_params=query or {},
+        headers=headers or {},
+        body=body,
+        source_ip=source_ip,
+    )
+
+
+class TestFalsePositivePrevention:
+    """Tests that legitimate requests don't trigger SQL injection detection."""
+
+    def test_action_delete_param_no_detection(self):
+        """URL param with 'delete' should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"action": "delete"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+    def test_mode_select_param_no_detection(self):
+        """URL param with 'select' should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"mode": "select"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+    def test_sort_order_desc_no_detection(self):
+        """Sort order parameters should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"sort": "created_at", "order": "desc"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+    def test_search_query_with_sql_words_no_detection(self):
+        """Natural language search should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"q": "how to select the best option"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+    def test_update_path_no_detection(self):
+        """REST endpoint with 'update' should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(path="/api/users/update")
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+    def test_email_address_no_detection(self):
+        """Email address should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"email": "john.doe@email.com"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+    def test_plain_user_id_no_detection(self):
+        """Plain user ID should not trigger."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"user_id": "123"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) == 0
+
+
+class TestTruePositiveDetection:
+    """Tests that actual SQL injection attacks are still detected."""
+
+    def test_classic_or_injection(self):
+        """Classic OR injection should be detected."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"id": "1' OR '1'='1"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_union_injection(self):
+        """UNION injection should be detected."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"id": "1 UNION SELECT * FROM users"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_stacked_query(self):
+        """Stacked query should be detected."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"id": "1'; DROP TABLE users--"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_comment_injection(self):
+        """Comment-based injection should be detected."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"id": "admin'--"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_tautology_injection(self):
+        """Tautology injection should be detected."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"id": "' OR 1=1"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_body_sql_injection(self):
+        """SQL injection in POST body should be detected."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(body="username=admin' OR '1'='1")
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+
+class TestConfidenceScoring:
+    """Tests for confidence level assignment and filtering."""
+
+    def test_high_confidence_events_have_correct_level(self):
+        """High confidence attacks should report HIGH."""
+        detector = AttackDetector(
+            enabled_detectors=["sqli"],
+            min_alert_confidence="LOW",
+        )
+        request = _make_request(query={"id": "1' OR '1'='1"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+        assert any(e.confidence == "HIGH" for e in sqli)
+
+    def test_should_block_with_high_confidence(self):
+        """should_block returns True for HIGH confidence events."""
+        detector = AttackDetector(
+            enabled_detectors=["sqli"],
+            min_block_confidence="HIGH",
+        )
+        request = _make_request(query={"id": "1' OR '1'='1"})
+        events = detector.analyze_request(request)
+        assert detector.should_block(events) is True
+
+    def test_should_not_block_below_threshold(self):
+        """should_block returns False when events are below threshold."""
+        detector = AttackDetector(min_block_confidence="HIGH")
+        events = [
+            SecurityEvent(
+                event_type=AttackType.SQL_INJECTION,
+                severity="MEDIUM",
+                confidence="LOW",
+                timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                source_ip="127.0.0.1",
+                path="/test",
+                method="GET",
+                matched_pattern=MatchedPattern(
+                    pattern="test", location="query", matched_value="test"
+                ),
+            )
+        ]
+        assert detector.should_block(events) is False
+
+    def test_alert_confidence_filters_low(self):
+        """Events below alert confidence threshold should not appear."""
+        detector = AttackDetector(
+            enabled_detectors=["sqli"],
+            min_alert_confidence="HIGH",
+        )
+        # This input might match LOW confidence patterns but not HIGH
+        request = _make_request(query={"q": "test; select something"})
+        events = detector.analyze_request(request)
+        # Any events that do appear should be HIGH confidence
+        for e in events:
+            if e.event_type == AttackType.SQL_INJECTION:
+                assert e.confidence == "HIGH"
+
+

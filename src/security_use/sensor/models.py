@@ -62,8 +62,10 @@ class SecurityEvent:
     request_headers: dict[str, str] = field(default_factory=dict)
     request_body: Optional[str] = None
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    confidence: float = 0.9
+    confidence: str = "HIGH"
     description: str = ""
+    blocked: bool = False
+    detector_mode: str = "block"
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
