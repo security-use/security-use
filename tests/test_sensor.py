@@ -2093,3 +2093,228 @@ class TestDetectorWithAllowlist:
         assert len(sqli) > 0
 
 
+# ========================================================================
+# Issue #28: Log-only mode per detector and pattern
+# ========================================================================
+
+from security_use.sensor import DetectorConfig, DetectorMode  # noqa: E402
+
+
+class TestDetectorModes:
+    """Tests for per-detector mode configuration."""
+
+    def test_default_config_blocks(self):
+        """Default config should block on detection."""
+        config = SensorConfig()
+        assert config.should_block_detector("sqli", "HIGH") is True
+
+    def test_learning_mode_never_blocks(self):
+        """Learning mode should never block."""
+        config = SensorConfig(learning_mode=True)
+        assert config.should_block_detector("sqli", "HIGH") is False
+        assert config.should_block_detector("xss", "HIGH") is False
+
+    def test_log_mode_does_not_block(self):
+        """Detectors in LOG mode should not block."""
+        config = SensorConfig(
+            detector_configs={
+                "sqli": DetectorConfig(mode=DetectorMode.LOG),
+            }
+        )
+        assert config.should_block_detector("sqli", "HIGH") is False
+
+    def test_block_mode_blocks(self):
+        """Detectors in BLOCK mode should block."""
+        config = SensorConfig(
+            detector_configs={
+                "sqli": DetectorConfig(mode=DetectorMode.BLOCK),
+            }
+        )
+        assert config.should_block_detector("sqli", "HIGH") is True
+
+    def test_disabled_mode_does_not_log(self):
+        """Detectors in DISABLED mode should not log."""
+        config = SensorConfig(
+            detector_configs={
+                "sqli": DetectorConfig(mode=DetectorMode.DISABLED),
+            }
+        )
+        assert config.should_log_detector("sqli", "HIGH") is False
+
+    def test_log_mode_does_log(self):
+        """Detectors in LOG mode should log."""
+        config = SensorConfig(
+            detector_configs={
+                "sqli": DetectorConfig(mode=DetectorMode.LOG),
+            }
+        )
+        assert config.should_log_detector("sqli", "HIGH") is True
+
+    def test_confidence_threshold_for_blocking(self):
+        """Only block at or above the confidence threshold."""
+        config = SensorConfig(
+            detector_configs={
+                "sqli": DetectorConfig(
+                    mode=DetectorMode.BLOCK,
+                    min_confidence_to_block="HIGH",
+                ),
+            }
+        )
+        assert config.should_block_detector("sqli", "HIGH") is True
+        assert config.should_block_detector("sqli", "MEDIUM") is False
+        assert config.should_block_detector("sqli", "LOW") is False
+
+    def test_confidence_threshold_for_logging(self):
+        """Only log at or above the log confidence threshold."""
+        config = SensorConfig(
+            detector_configs={
+                "sqli": DetectorConfig(
+                    mode=DetectorMode.BLOCK,
+                    min_confidence_to_log="MEDIUM",
+                ),
+            }
+        )
+        assert config.should_log_detector("sqli", "HIGH") is True
+        assert config.should_log_detector("sqli", "MEDIUM") is True
+        assert config.should_log_detector("sqli", "LOW") is False
+
+    def test_unknown_detector_gets_defaults(self):
+        """Unknown detector names should get default config."""
+        config = SensorConfig()
+        assert config.should_block_detector("unknown", "HIGH") is True
+        assert config.should_log_detector("unknown", "HIGH") is True
+
+    def test_learning_mode_overrides_detector_config(self):
+        """Learning mode should override per-detector block settings."""
+        config = SensorConfig(
+            learning_mode=True,
+            detector_configs={
+                "sqli": DetectorConfig(mode=DetectorMode.BLOCK),
+            },
+        )
+        assert config.should_block_detector("sqli", "HIGH") is False
+
+
+class TestLearningModeIntegration:
+    """Tests for learning mode with the full middleware stack."""
+
+    def test_learning_mode_events_still_created(self):
+        """Learning mode should still create events."""
+        config = create_config(learning_mode=True)
+        detector = AttackDetector(
+            enabled_detectors=config.enabled_detectors,
+            min_block_confidence=config.min_block_confidence,
+            min_alert_confidence=config.min_alert_confidence,
+        )
+        request = _make_request(query={"id": "1' OR '1'='1"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_learning_mode_should_not_block(self):
+        """Learning mode should never block even with high confidence."""
+        config = SensorConfig(learning_mode=True, block_on_detection=True)
+        detector = AttackDetector(
+            enabled_detectors=config.enabled_detectors,
+            min_block_confidence=config.min_block_confidence,
+        )
+        request = _make_request(query={"id": "1' OR '1'='1"})
+        events = detector.analyze_request(request)
+
+        should_block = (
+            config.block_on_detection
+            and not config.learning_mode
+            and detector.should_block(events)
+        )
+        assert should_block is False
+
+
+class TestSecurityEventConfidenceField:
+    """Tests for the confidence field on SecurityEvent."""
+
+    def test_event_confidence_is_string(self):
+        """SecurityEvent confidence should be a string."""
+        event = SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            confidence="HIGH",
+            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            source_ip="127.0.0.1",
+            path="/test",
+            method="GET",
+            matched_pattern=MatchedPattern(
+                pattern="test", location="query", matched_value="test"
+            ),
+        )
+        assert isinstance(event.confidence, str)
+        assert event.confidence == "HIGH"
+
+    def test_event_to_dict_includes_confidence(self):
+        """to_dict should include the confidence level."""
+        event = SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            confidence="MEDIUM",
+            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            source_ip="127.0.0.1",
+            path="/test",
+            method="GET",
+            matched_pattern=MatchedPattern(
+                pattern="test", location="query", matched_value="test"
+            ),
+        )
+        d = event.to_dict()
+        assert d["confidence"] == "MEDIUM"
+
+    def test_event_blocked_and_detector_mode_fields(self):
+        """SecurityEvent should have blocked and detector_mode fields."""
+        event = SecurityEvent(
+            event_type=AttackType.SQL_INJECTION,
+            severity="HIGH",
+            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            source_ip="127.0.0.1",
+            path="/test",
+            method="GET",
+            matched_pattern=MatchedPattern(
+                pattern="test", location="query", matched_value="test"
+            ),
+            blocked=True,
+            detector_mode="block",
+        )
+        assert event.blocked is True
+        assert event.detector_mode == "block"
+
+
+class TestSQLInjectionPayloads:
+    """Parametrized tests against known SQL injection payloads and benign inputs."""
+
+    SQL_INJECTION_PAYLOADS = [
+        # Actual attacks (should detect)
+        ("1' OR '1'='1", True),
+        ("1' OR '1'='1'--", True),
+        ("1'; DROP TABLE users--", True),
+        ("1 UNION SELECT * FROM users", True),
+        ("admin'--", True),
+        ("-1' UNION SELECT 1,2,3--", True),
+        ("1' AND 1=1--", True),
+        # Benign inputs (should NOT detect)
+        ("john.doe@email.com", False),
+        ("select", False),
+        ("delete", False),
+        ("The best way to select items", False),
+        ("Please update your profile", False),
+        ("user_id=123", False),
+        ("action=delete_item", False),
+    ]
+
+    @pytest.mark.parametrize("payload,should_detect", SQL_INJECTION_PAYLOADS)
+    def test_sqli_detection(self, payload, should_detect):
+        """Test SQL injection detection for various payloads."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"input": payload})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        detected = len(sqli) > 0
+        assert detected == should_detect, (
+            f"Payload '{payload}': expected detect={should_detect}, got {detected}"
+        )
