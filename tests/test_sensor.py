@@ -1957,3 +1957,139 @@ class TestConfidenceScoring:
                 assert e.confidence == "HIGH"
 
 
+# ========================================================================
+# Issue #27: Pattern allowlist configuration
+# ========================================================================
+
+from security_use.sensor import AllowlistConfig  # noqa: E402
+
+
+class TestAllowlistConfig:
+    """Tests for AllowlistConfig."""
+
+    def test_path_allowlist(self):
+        """Test path regex matching."""
+        allowlist = AllowlistConfig(paths=[r"^/health$", r"^/internal/.*"])
+        assert allowlist.is_path_allowed("/health") is True
+        assert allowlist.is_path_allowed("/internal/test") is True
+        assert allowlist.is_path_allowed("/api/users") is False
+
+    def test_ip_allowlist_exact(self):
+        """Test exact IP matching."""
+        allowlist = AllowlistConfig(source_ips=["192.168.1.100"])
+        assert allowlist.is_ip_allowed("192.168.1.100") is True
+        assert allowlist.is_ip_allowed("192.168.1.101") is False
+
+    def test_ip_allowlist_cidr(self):
+        """Test CIDR IP matching."""
+        allowlist = AllowlistConfig(source_ips=["10.0.0.0/8"])
+        assert allowlist.is_ip_allowed("10.0.0.1") is True
+        assert allowlist.is_ip_allowed("10.255.255.255") is True
+        assert allowlist.is_ip_allowed("192.168.1.1") is False
+
+    def test_ip_allowlist_invalid_ip(self):
+        """Test that invalid IPs return False."""
+        allowlist = AllowlistConfig(source_ips=["10.0.0.0/8"])
+        assert allowlist.is_ip_allowed("not-an-ip") is False
+
+    def test_user_agent_allowlist(self):
+        """Test user agent matching."""
+        allowlist = AllowlistConfig(user_agents=[r"^Datadog.*", r"^HealthChecker/.*"])
+        assert allowlist.is_user_agent_allowed("Datadog/Agent-7.0") is True
+        assert allowlist.is_user_agent_allowed("HealthChecker/1.0") is True
+        assert allowlist.is_user_agent_allowed("Mozilla/5.0") is False
+
+    def test_payload_allowlist(self):
+        """Test payload pattern matching."""
+        allowlist = AllowlistConfig(payload_patterns=[r"^action=(delete|update)$"])
+        assert allowlist.is_payload_allowed("action=delete") is True
+        assert allowlist.is_payload_allowed("action=update") is True
+        assert allowlist.is_payload_allowed("id=1' OR '1'='1") is False
+
+    def test_empty_allowlist(self):
+        """Test that empty allowlist doesn't match anything."""
+        allowlist = AllowlistConfig()
+        assert allowlist.is_path_allowed("/health") is False
+        assert allowlist.is_ip_allowed("127.0.0.1") is False
+        assert allowlist.is_user_agent_allowed("test") is False
+        assert allowlist.is_payload_allowed("test") is False
+
+    def test_is_request_allowed_by_path(self):
+        """Test full request check via path."""
+        allowlist = AllowlistConfig(paths=[r"^/health$"])
+        request = _make_request(path="/health", query={"test": "1' OR '1'='1"})
+        assert allowlist.is_request_allowed(request) is True
+
+    def test_is_request_allowed_by_ip(self):
+        """Test full request check via IP."""
+        allowlist = AllowlistConfig(source_ips=["192.168.1.0/24"])
+        request = _make_request(
+            query={"id": "1' OR '1'='1"}, source_ip="192.168.1.50"
+        )
+        assert allowlist.is_request_allowed(request) is True
+
+    def test_is_request_allowed_by_user_agent(self):
+        """Test full request check via user-agent."""
+        allowlist = AllowlistConfig(user_agents=[r"^Datadog.*"])
+        request = _make_request(
+            query={"id": "1' OR '1'='1"},
+            headers={"user-agent": "Datadog/Agent-7.0"},
+        )
+        assert allowlist.is_request_allowed(request) is True
+
+    def test_is_request_allowed_by_payload(self):
+        """Test full request check via payload pattern."""
+        allowlist = AllowlistConfig(payload_patterns=[r"^action=delete$"])
+        request = _make_request(query={"action": "delete"})
+        assert allowlist.is_request_allowed(request) is True
+
+
+class TestDetectorWithAllowlist:
+    """Tests for detector with allowlist integration."""
+
+    def test_allowlisted_path_skips_detection(self):
+        """Requests to allowlisted paths should not be detected."""
+        allowlist = AllowlistConfig(paths=[r"^/health$"])
+        detector = AttackDetector(
+            enabled_detectors=["sqli"], allowlist=allowlist
+        )
+        request = _make_request(
+            path="/health", query={"test": "1' OR '1'='1"}
+        )
+        events = detector.analyze_request(request)
+        assert len(events) == 0
+
+    def test_allowlisted_ip_skips_detection(self):
+        """Requests from allowlisted IPs should not be detected."""
+        allowlist = AllowlistConfig(source_ips=["192.168.1.0/24"])
+        detector = AttackDetector(
+            enabled_detectors=["sqli"], allowlist=allowlist
+        )
+        request = _make_request(
+            query={"id": "1' OR '1'='1"}, source_ip="192.168.1.50"
+        )
+        events = detector.analyze_request(request)
+        assert len(events) == 0
+
+    def test_non_allowlisted_still_detected(self):
+        """Non-allowlisted requests should still be detected."""
+        allowlist = AllowlistConfig(paths=[r"^/health$"])
+        detector = AttackDetector(
+            enabled_detectors=["sqli"], allowlist=allowlist
+        )
+        request = _make_request(
+            path="/api/users", query={"id": "1' OR '1'='1"}
+        )
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+    def test_no_allowlist_still_detects(self):
+        """Without allowlist, detection works normally."""
+        detector = AttackDetector(enabled_detectors=["sqli"])
+        request = _make_request(query={"id": "1' OR '1'='1"})
+        events = detector.analyze_request(request)
+        sqli = [e for e in events if e.event_type == AttackType.SQL_INJECTION]
+        assert len(sqli) > 0
+
+
